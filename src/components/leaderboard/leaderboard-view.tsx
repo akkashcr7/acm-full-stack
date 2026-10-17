@@ -14,7 +14,6 @@ import {
   RotateCw,
   Layers,
   Search,
-  Play,
   Volume2,
   VolumeX,
   Clock,
@@ -32,7 +31,6 @@ export function LeaderboardView() {
   const [livePulse, setLivePulse] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
-  const [simulating, setSimulating] = useState<boolean>(false);
 
   // Initial Fetch & SSE Subscription
   useEffect(() => {
@@ -109,44 +107,6 @@ export function LeaderboardView() {
     setExpandedTeamId(expandedTeamId === teamId ? null : teamId);
   };
 
-  const simulateLiveRun = async () => {
-    sounds.playClick();
-    setSimulating(true);
-    try {
-      const pendingTeams = entries.filter((e) => e.runsCount === 0);
-      const targetTeam =
-        pendingTeams.length > 0
-          ? pendingTeams[0].team
-          : entries[Math.floor(Math.random() * entries.length)].team;
-
-      const randomScores = criteria.map((c) => ({
-        criterionId: c.id,
-        score: Math.round(c.maxScore * (0.72 + Math.random() * 0.26)),
-      }));
-
-      await fetch("/api/scores", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          eventId: "evt_ace_2026",
-          teamId: targetTeam.id,
-          judgeId: "usr_judge2",
-          judgeName: "Marcus Brody (Judge 2)",
-          criteriaScores: randomScores,
-          penalties: Math.random() > 0.7 ? 1 : 0,
-          notes: "Live simulated trial run in arena.",
-          version: 1,
-          deviceId: "simulator_console",
-        }),
-      });
-      sounds.playSuccess();
-    } catch (err) {
-      console.error("Live trial simulation failed:", err);
-    } finally {
-      setSimulating(false);
-    }
-  };
-
   const filteredEntries = entries.filter(
     (e) =>
       e.team.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -205,16 +165,6 @@ export function LeaderboardView() {
             ) : (
               <VolumeX className="w-4 h-4 text-slate-500" />
             )}
-          </button>
-
-          {/* Simulate Live Run */}
-          <button
-            onClick={simulateLiveRun}
-            disabled={simulating}
-            className="px-3 py-2 rounded-xl bg-primary/15 hover:bg-primary/25 border border-primary/40 text-xs font-semibold text-primary flex items-center gap-1.5 transition-all shadow-md shadow-primary/10"
-          >
-            <Play className={`w-3.5 h-3.5 fill-primary ${simulating ? "animate-spin" : ""}`} />
-            <span>{simulating ? "Simulating..." : "Simulate Trial Run"}</span>
           </button>
 
           {/* Projector Mode Toggle */}

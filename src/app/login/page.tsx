@@ -5,12 +5,12 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { useAce } from "@/context/ace-context";
 import { UserRole } from "@/types";
+import { signInWithFirebaseGoogle } from "@/lib/firebase";
 import {
   ShieldCheck,
   Lock,
   Mail,
   ArrowRight,
-  UserCheck,
   Sparkles,
   Trophy,
   AlertCircle,
@@ -34,88 +34,67 @@ export default function LoginPage() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const QUICK_GMAIL_ACCOUNTS = [
-    {
-      role: "admin" as UserRole,
-      roleLabel: "Lead Administrator",
-      email: "admin@gmail.com",
-      pass: "Admin@123",
-      name: "Alex Vance",
-      badgeColor: "bg-cyan-500/10 border-cyan-500/30 text-cyan-400 hover:border-cyan-400/60",
-      targetPath: "/admin",
-    },
-    {
-      role: "judge" as UserRole,
-      roleLabel: "Certified Judge",
-      email: "judge1@gmail.com",
-      pass: "Judge@123",
-      name: "Dr. Sarah Chen",
-      badgeColor: "bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:border-emerald-400/60",
-      targetPath: "/judge",
-    },
-    {
-      role: "judge" as UserRole,
-      roleLabel: "Secondary Judge",
-      email: "judge2@gmail.com",
-      pass: "Judge@123",
-      name: "Marcus Brody",
-      badgeColor: "bg-indigo-500/10 border-indigo-500/30 text-indigo-400 hover:border-indigo-400/60",
-      targetPath: "/judge",
-    },
-    {
-      role: "public" as UserRole,
-      roleLabel: "Public Spectator",
-      email: "spectator@gmail.com",
-      pass: "Public@123",
-      name: "Spectator",
-      badgeColor: "bg-slate-500/10 border-slate-500/30 text-slate-300 hover:border-slate-400/60",
-      targetPath: "/",
-    },
-  ];
-
-  const handleQuickSelect = (acc: (typeof QUICK_GMAIL_ACCOUNTS)[0]) => {
-    sounds.playClick();
-    setEmail(acc.email);
-    setPassword(acc.pass);
-    setSelectedRole(acc.role);
-    setError(null);
-  };
-
+  // Real Firebase Google Sign-In
   const handleGoogleSignIn = async () => {
     sounds.playClick();
     setGoogleLoading(true);
     setError(null);
 
-    // If user already typed an email, use it; otherwise provide a standard user gmail
-    const targetEmail = email.trim() || "judge.user@gmail.com";
-    const derivedName = targetEmail.split("@")[0].replace(/[._-]/g, " ");
-    const formattedName = derivedName.charAt(0).toUpperCase() + derivedName.slice(1);
+    try {
+      const fbResult = await signInWithFirebaseGoogle();
 
-    const result = await login(targetEmail, "GoogleOAuth2026", selectedRole, formattedName);
-    setGoogleLoading(false);
+      if (fbResult.success && fbResult.email) {
+        // Authenticated with real Firebase Google Account
+        const res = await login(
+          fbResult.email,
+          "firebase_google_auth",
+          selectedRole,
+          fbResult.displayName
+        );
 
-    if (result.success) {
-      sounds.playSuccess();
-      if (selectedRole === "admin") router.push("/admin");
-      else if (selectedRole === "judge") router.push("/judge");
-      else router.push("/");
-    } else {
-      sounds.playWarning();
-      setError(result.error || "Google authentication failed.");
+        if (res.success) {
+          sounds.playSuccess();
+          if (selectedRole === "admin") router.push("/admin");
+          else if (selectedRole === "judge") router.push("/judge");
+          else router.push("/");
+          return;
+        }
+      }
+
+      // If Firebase popup was cancelled or needs manual account entry
+      if (email.trim() && email.includes("@")) {
+        const res = await login(email.trim(), "google_auth", selectedRole);
+        if (res.success) {
+          sounds.playSuccess();
+          if (selectedRole === "admin") router.push("/admin");
+          else if (selectedRole === "judge") router.push("/judge");
+          else router.push("/");
+          return;
+        }
+      }
+
+      if (fbResult.error && !fbResult.error.includes("popup-closed-by-user")) {
+        // If Firebase API key not yet bound, prompt user to enter their Gmail directly
+        setError("Please enter your Gmail address below to proceed.");
+      }
+    } catch {
+      setError("Unable to complete Google sign-in. Please use email below.");
+    } finally {
+      setGoogleLoading(false);
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !email.includes("@")) {
-      setError("Please enter a valid Gmail address (e.g. name@gmail.com).");
+      setError("Please enter a valid Gmail or email address.");
       return;
     }
 
     setLoading(true);
     setError(null);
 
-    const result = await login(email, password, selectedRole);
+    const result = await login(email.trim(), password, selectedRole);
     setLoading(false);
 
     if (result.success) {
@@ -129,7 +108,7 @@ export default function LoginPage() {
       }
     } else {
       sounds.playWarning();
-      setError(result.error || "Authentication failed. Please verify email.");
+      setError(result.error || "Authentication failed. Please check your credentials.");
     }
   };
 
@@ -196,7 +175,7 @@ export default function LoginPage() {
             </motion.div>
           )}
 
-          {/* 1-Click Continue with Google Button */}
+          {/* Continue with Google via Firebase */}
           <button
             type="button"
             onClick={handleGoogleSignIn}
@@ -231,7 +210,7 @@ export default function LoginPage() {
           <div className="relative flex items-center justify-center my-3">
             <div className="border-t border-border/80 w-full" />
             <span className="bg-[#0b0f19] px-3 text-[11px] font-mono text-slate-400 uppercase tracking-wider shrink-0">
-              or with Gmail / email
+              or sign in with email
             </span>
             <div className="border-t border-border/80 w-full" />
           </div>
@@ -240,7 +219,7 @@ export default function LoginPage() {
             {/* Role Selection Tabs */}
             <div>
               <label className="block text-[11px] font-mono uppercase tracking-wider text-slate-300 mb-1.5">
-                Select Sign-In Role
+                Select Your Role
               </label>
               <div className="grid grid-cols-3 gap-1.5 p-1 bg-surface-100 rounded-xl border border-border/60">
                 <button
@@ -312,13 +291,13 @@ export default function LoginPage() {
             {/* Password Field */}
             <div>
               <label className="block text-[11px] font-mono uppercase tracking-wider text-slate-300 mb-1.5">
-                Password / Access Key
+                Password
               </label>
               <div className="relative">
                 <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   type={showPassword ? "text" : "password"}
-                  placeholder="Enter any password (or leave blank)"
+                  placeholder="Enter password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-surface-100 border border-border/80 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-primary transition-colors font-mono"
@@ -350,33 +329,6 @@ export default function LoginPage() {
               <span>{loading ? "Authenticating..." : `Sign In as ${selectedRole.toUpperCase()}`}</span>
             </button>
           </form>
-
-          {/* Quick-Fill Sample Gmail Accounts */}
-          <div className="pt-3 border-t border-border/60">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                <UserCheck className="w-3.5 h-3.5 text-primary" />
-                One-Click Quick Accounts:
-              </span>
-            </div>
-            <div className="grid grid-cols-2 gap-1.5">
-              {QUICK_GMAIL_ACCOUNTS.map((acc) => (
-                <button
-                  key={acc.email}
-                  type="button"
-                  onClick={() => handleQuickSelect(acc)}
-                  className={`p-2 rounded-xl border text-left transition-all hover:scale-[1.02] active:scale-[0.98] ${acc.badgeColor}`}
-                >
-                  <p className="text-[11px] font-bold leading-tight truncate">
-                    {acc.name}
-                  </p>
-                  <p className="text-[10px] font-mono opacity-80 truncate">
-                    {acc.email}
-                  </p>
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
 
         {/* Public Spectator Skip Link */}

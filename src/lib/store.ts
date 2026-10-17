@@ -149,95 +149,10 @@ const INITIAL_TEAMS: Team[] = [
   },
 ];
 
-// Initial seeded scores so leaderboard is instantly populated with realistic competition data
-const INITIAL_SUBMISSIONS: ScoreSubmission[] = [
-  {
-    id: "sub_1",
-    eventId: "evt_ace_2026",
-    teamId: "team_beta",
-    judgeId: "usr_judge1",
-    judgeName: "Dr. Sarah Chen (Judge 1)",
-    criteriaScores: [
-      { criterionId: "crit_auto_nav", score: 28 },
-      { criterionId: "crit_obstacle", score: 24 },
-      { criterionId: "crit_mech_robust", score: 23 },
-      { criterionId: "crit_innovation", score: 19 },
-    ],
-    penalties: 0,
-    notes: "Flawless autonomous navigation run.",
-    totalWeightedScore: 109.0,
-    version: 1,
-    deviceId: "device_pad_01",
-    createdAt: new Date(Date.now() - 3600000).toISOString(),
-  },
-  {
-    id: "sub_2",
-    eventId: "evt_ace_2026",
-    teamId: "team_alpha",
-    judgeId: "usr_judge1",
-    judgeName: "Dr. Sarah Chen (Judge 1)",
-    criteriaScores: [
-      { criterionId: "crit_auto_nav", score: 27 },
-      { criterionId: "crit_obstacle", score: 22 },
-      { criterionId: "crit_mech_robust", score: 24 },
-      { criterionId: "crit_innovation", score: 18 },
-    ],
-    penalties: 2,
-    notes: "Minor perimeter touch on obstacle 3.",
-    totalWeightedScore: 103.3,
-    version: 1,
-    deviceId: "device_pad_01",
-    createdAt: new Date(Date.now() - 2400000).toISOString(),
-  },
-  {
-    id: "sub_3",
-    eventId: "evt_ace_2026",
-    teamId: "team_gamma",
-    judgeId: "usr_judge2",
-    judgeName: "Marcus Brody (Judge 2)",
-    criteriaScores: [
-      { criterionId: "crit_auto_nav", score: 25 },
-      { criterionId: "crit_obstacle", score: 23 },
-      { criterionId: "crit_mech_robust", score: 21 },
-      { criterionId: "crit_innovation", score: 17 },
-    ],
-    penalties: 0,
-    notes: "Solid SLAM performance.",
-    totalWeightedScore: 99.7,
-    version: 1,
-    deviceId: "device_pad_02",
-    createdAt: new Date(Date.now() - 1800000).toISOString(),
-  },
-];
+// Clean initial state: trial scores are created dynamically by judges in real-time
+const INITIAL_SUBMISSIONS: ScoreSubmission[] = [];
 
-const INITIAL_AUDIT_LOGS: AuditLogEntry[] = [
-  {
-    id: "log_init_1",
-    timestamp: new Date(Date.now() - 3600000).toISOString(),
-    action: "SCORE_SUBMITTED",
-    actorId: "usr_judge1",
-    actorName: "Dr. Sarah Chen",
-    actorRole: "judge",
-    targetTeamId: "team_beta",
-    targetTeamName: "RoboTitans",
-    oldValue: null,
-    newValue: 109.0,
-    details: "Run 1 scored. Autonomous Nav: 28, Obstacle: 24.",
-  },
-  {
-    id: "log_init_2",
-    timestamp: new Date(Date.now() - 2400000).toISOString(),
-    action: "SCORE_SUBMITTED",
-    actorId: "usr_judge1",
-    actorName: "Dr. Sarah Chen",
-    actorRole: "judge",
-    targetTeamId: "team_alpha",
-    targetTeamName: "CyberViper",
-    oldValue: null,
-    newValue: 103.3,
-    details: "Run 1 scored with 2 penalty points.",
-  },
-];
+const INITIAL_AUDIT_LOGS: AuditLogEntry[] = [];
 
 // In-Memory store attached to globalThis so it persists across Next.js API hot-reloads and invocations
 declare global {

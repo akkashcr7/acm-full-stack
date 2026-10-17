@@ -87,11 +87,16 @@ export function AceProvider({ children }: { children: React.ReactNode }) {
 
     updateQueue();
 
-    // Register Service Worker
+    // Register Service Worker and auto-update to latest deployment
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/sw.js").catch((err) => {
-        console.warn("SW registration ignored in dev:", err);
-      });
+      navigator.serviceWorker
+        .register("/sw.js")
+        .then((reg) => {
+          reg.update().catch(() => {});
+        })
+        .catch((err) => {
+          console.warn("SW registration ignored in dev:", err);
+        });
     }
 
     // Prefetch and cache metadata for offline access

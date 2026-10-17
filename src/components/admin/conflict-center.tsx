@@ -11,7 +11,6 @@ import {
   RotateCw,
   Scale,
 } from "lucide-react";
-import { sounds } from "@/lib/sound";
 
 export function ConflictCenter() {
   const { currentUser } = useAce();
@@ -82,17 +81,6 @@ export function ConflictCenter() {
         </div>
 
         <div className="flex items-center gap-2">
-          <button
-            onClick={async () => {
-              sounds.playClick();
-              await fetch("/api/conflicts/simulate", { method: "POST" });
-              await fetchConflicts();
-            }}
-            className="px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 text-xs font-semibold flex items-center gap-1.5 transition-all shadow-md shadow-amber-500/10"
-          >
-            <span>⚡ Simulate Conflict</span>
-          </button>
-
           <button
             onClick={fetchConflicts}
             className="p-2 rounded-lg bg-surface-100 hover:bg-surface-50 border border-border/60 text-slate-400 hover:text-white text-xs flex items-center gap-1.5"

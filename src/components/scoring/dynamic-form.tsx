@@ -16,7 +16,6 @@ import {
   Zap,
   RotateCw,
   Camera,
-  Target,
 } from "lucide-react";
 import { sounds } from "@/lib/sound";
 
@@ -167,35 +166,6 @@ export function DynamicScoringForm({ initialTeamId }: { initialTeamId?: string }
       if (scanInterval) clearInterval(scanInterval);
     };
   }, [showQRModal, teams]);
-
-  const applyPreset = (type: "perfect" | "penalty" | "anomaly") => {
-    sounds.playClick();
-    if (type === "perfect") {
-      const pScores: Record<string, number> = {};
-      criteria.forEach((c) => {
-        pScores[c.id] = c.maxScore;
-      });
-      setScores(pScores);
-      setPenalties(0);
-      setNotes("Flawless autonomous run with optimal path navigation.");
-    } else if (type === "penalty") {
-      const pScores: Record<string, number> = {};
-      criteria.forEach((c) => {
-        pScores[c.id] = Math.round(c.maxScore * 0.85);
-      });
-      setScores(pScores);
-      setPenalties(3);
-      setNotes("Minor perimeter boundary violation on obstacle 2.");
-    } else if (type === "anomaly") {
-      const pScores: Record<string, number> = {};
-      criteria.forEach((c) => {
-        pScores[c.id] = Math.max(1, Math.round(c.maxScore * 0.15));
-      });
-      setScores(pScores);
-      setPenalties(8);
-      setNotes("Hardware stall and total sensor failure (Triggers 2σ anomaly flag).");
-    }
-  };
 
   const selectedTeam = teams.find((t) => t.id === selectedTeamId);
 
@@ -386,37 +356,6 @@ export function DynamicScoringForm({ initialTeamId }: { initialTeamId?: string }
                 </button>
               );
             })}
-          </div>
-        </div>
-
-        {/* Quick Presets Toolbar */}
-        <div className="flex flex-wrap items-center justify-between gap-2 p-3 bg-surface-100/90 rounded-2xl border border-border/80">
-          <span className="text-xs font-mono text-slate-400 flex items-center gap-1.5">
-            <Target className="w-3.5 h-3.5 text-primary" />
-            Quick Scenarios:
-          </span>
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => applyPreset("perfect")}
-              className="px-2.5 py-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/40 text-[11px] font-semibold text-emerald-300 transition-colors"
-            >
-              🎯 Perfect Run
-            </button>
-            <button
-              type="button"
-              onClick={() => applyPreset("penalty")}
-              className="px-2.5 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-[11px] font-semibold text-amber-300 transition-colors"
-            >
-              ⚠️ Minor Penalty
-            </button>
-            <button
-              type="button"
-              onClick={() => applyPreset("anomaly")}
-              className="px-2.5 py-1 rounded-lg bg-purple-500/15 hover:bg-purple-500/25 border border-purple-500/40 text-[11px] font-semibold text-purple-300 transition-colors"
-            >
-              🚨 2σ Outlier
-            </button>
           </div>
         </div>
 
