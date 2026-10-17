@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { AceProvider } from "@/context/ace-context";
 import { Navbar } from "@/components/navbar";
-import { TelemetryTicker } from "@/components/telemetry-ticker";
 import { OfflineBanner } from "@/components/offline-banner";
 import { InteractiveMistBackground } from "@/components/interactive-mist-bg";
 
@@ -28,7 +27,6 @@ export default function RootLayout({
         <AceProvider>
           <div className="relative min-h-screen flex flex-col z-10">
             <Navbar />
-            <TelemetryTicker />
             <OfflineBanner />
             <main className="flex-1 pb-20 md:pb-6">{children}</main>
           </div>
