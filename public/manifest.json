@@ -1,0 +1,16 @@
+{
+  "name": "Team ACE Robotics Judging",
+  "short_name": "ACE Judge",
+  "description": "Offline-First Autonomous Robotics Competition Judging Platform",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#090A10",
+  "theme_color": "#00F0FF",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    }
+  ]
+}
