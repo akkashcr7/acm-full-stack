@@ -6,7 +6,6 @@ import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
 import { useAce } from "@/context/ace-context";
 import {
-  Plane,
   RotateCw,
   Trophy,
   ClipboardCheck,
@@ -21,8 +20,6 @@ export function Navbar() {
   const {
     currentUser,
     isOnline,
-    isSimulated,
-    toggleSimulatedOffline,
     pendingQueueCount,
     triggerManualSync,
     isSyncing,
@@ -97,21 +94,8 @@ export function Navbar() {
           })}
         </nav>
 
-        {/* Actions & Role Switcher */}
+        {/* Actions & Status */}
         <div className="flex items-center gap-2 sm:gap-3">
-          {/* Airplane Mode Simulator Switch */}
-          <button
-            onClick={toggleSimulatedOffline}
-            title="Simulate Airplane Mode to test offline scoring"
-            className={`px-2.5 py-1.5 rounded-lg border text-xs font-mono transition-all flex items-center gap-1.5 ${
-              isSimulated
-                ? "bg-amber-500/15 border-amber-500/50 text-amber-400 shadow-lg shadow-amber-500/10"
-                : "bg-surface-100 border-border/60 text-slate-400 hover:text-slate-200"
-            }`}
-          >
-            <Plane className={`w-3.5 h-3.5 ${isSimulated ? "rotate-45 text-amber-400" : ""}`} />
-            <span className="hidden lg:inline">{isSimulated ? "Airplane Mode ON" : "Simulate Offline"}</span>
-          </button>
 
           {/* Sync Button & Queue Count */}
           {pendingQueueCount > 0 && (

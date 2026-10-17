@@ -6,35 +6,25 @@ export async function GET() {
   return NextResponse.json({ users });
 }
 
-const VALID_PASSWORDS: Record<string, string> = {
-  "admin@ace.ai": "Admin@123",
-  "judge1@ace.ai": "Judge@123",
-  "judge2@ace.ai": "Judge@123",
-  "public@ace.ai": "Public@123",
-};
-
 export async function POST(req: Request) {
   try {
-    const { email, password } = await req.json();
-    const users = AppStore.getUsers();
+    const { email, name, role, avatar } = await req.json();
     const cleanEmail = email?.trim().toLowerCase();
-    const user = users.find((u) => u.email.toLowerCase() === cleanEmail);
 
-    if (!user) {
+    if (!cleanEmail || !cleanEmail.includes("@")) {
       return NextResponse.json(
-        { error: "Account not found. Valid accounts: admin@ace.ai, judge1@ace.ai, judge2@ace.ai, public@ace.ai" },
-        { status: 401 }
+        { error: "Please provide a valid Gmail or email address." },
+        { status: 400 }
       );
     }
 
-    // If password provided, verify against expected password
-    const expectedPassword = VALID_PASSWORDS[cleanEmail];
-    if (password && expectedPassword && password !== expectedPassword) {
-      return NextResponse.json(
-        { error: `Incorrect password for ${cleanEmail}. Default is: ${expectedPassword}` },
-        { status: 401 }
-      );
-    }
+    // Upsert or retrieve user (works with any Gmail or email domain)
+    const user = AppStore.upsertUser({
+      email: cleanEmail,
+      name,
+      role: role || (cleanEmail.includes("admin") ? "admin" : "judge"),
+      avatar,
+    });
 
     const sessionToken = `ace_token_${user.id}_${Date.now()}`;
 
@@ -44,8 +34,9 @@ export async function POST(req: Request) {
       token: sessionToken,
       expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
     });
-  } catch {
-    return NextResponse.json({ error: "Failed to process authentication request" }, { status: 500 });
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : "Failed to process authentication request";
+    return NextResponse.json({ error: errorMsg }, { status: 500 });
   }
 }
 

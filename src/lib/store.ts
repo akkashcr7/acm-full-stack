@@ -20,29 +20,42 @@ const INITIAL_USERS: User[] = [
   {
     id: "usr_admin",
     name: "Alex Vance (Lead Admin)",
-    email: "admin@ace.ai",
+    email: "admin@gmail.com",
     role: "admin",
     avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80",
   },
   {
     id: "usr_judge1",
     name: "Dr. Sarah Chen (Judge 1)",
-    email: "judge1@ace.ai",
+    email: "judge1@gmail.com",
     role: "judge",
     avatar: "https://images.unsplash.com/photo-1580489944761-15a19d654956?w=100&auto=format&fit=crop&q=80",
   },
   {
     id: "usr_judge2",
     name: "Marcus Brody (Judge 2)",
-    email: "judge2@ace.ai",
+    email: "judge2@gmail.com",
     role: "judge",
     avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80",
   },
   {
     id: "usr_public",
     name: "Spectator / Public",
-    email: "public@ace.ai",
+    email: "public@gmail.com",
     role: "public",
+  },
+  // Legacy aliases
+  {
+    id: "usr_admin_ace",
+    name: "Alex Vance (Admin)",
+    email: "admin@ace.ai",
+    role: "admin",
+  },
+  {
+    id: "usr_judge1_ace",
+    name: "Dr. Sarah Chen",
+    email: "judge1@ace.ai",
+    role: "judge",
   },
 ];
 
@@ -278,6 +291,33 @@ const store = globalThis.__ACE_STORE__;
 export const AppStore = {
   getUsers: () => store.users,
   getUserById: (id: string) => store.users.find((u) => u.id === id),
+  upsertUser: (userData: { name?: string; email: string; role?: User["role"]; avatar?: string }): User => {
+    const cleanEmail = userData.email.trim().toLowerCase();
+    let user = store.users.find((u) => u.email.toLowerCase() === cleanEmail);
+    if (user) {
+      if (userData.role) user.role = userData.role;
+      if (userData.name) user.name = userData.name;
+      if (userData.avatar) user.avatar = userData.avatar;
+    } else {
+      const rawName = userData.name || cleanEmail.split("@")[0].replace(/[._-]/g, " ");
+      const formattedName = rawName.charAt(0).toUpperCase() + rawName.slice(1);
+      user = {
+        id: `usr_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        email: cleanEmail,
+        name: formattedName,
+        role: userData.role || "judge",
+        avatar: userData.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${cleanEmail}`,
+      };
+      store.users.push(user);
+
+      // Auto-assign judge to all teams so scoring works immediately
+      if (user.role === "judge") {
+        const allTeamIds = store.teams.map((t) => t.id);
+        AppStore.setAssignment(user.id, user.name, allTeamIds);
+      }
+    }
+    return user;
+  },
   getEvent: () => store.event,
   updateEvent: (updates: Partial<CompetitionEvent>) => {
     store.event = { ...store.event, ...updates };

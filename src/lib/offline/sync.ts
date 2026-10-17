@@ -8,24 +8,18 @@ export interface SyncResult {
 }
 
 /**
- * Checks if the browser is currently online (and not in simulated offline mode)
+ * Checks if the browser is currently online based on real network connectivity
  */
 export function isNetworkOnline(): boolean {
   if (typeof window === "undefined") return true;
-  const simulatedOffline = localStorage.getItem("ace_simulate_offline") === "true";
-  if (simulatedOffline) return false;
   return navigator.onLine;
 }
 
-export function setSimulatedOffline(offline: boolean) {
-  if (typeof window === "undefined") return;
-  localStorage.setItem("ace_simulate_offline", offline ? "true" : "false");
-  window.dispatchEvent(new Event("ace-connection-change"));
-}
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function setSimulatedOffline(_offline?: boolean) {}
 
 export function isSimulatedOffline(): boolean {
-  if (typeof window === "undefined") return false;
-  return localStorage.getItem("ace_simulate_offline") === "true";
+  return false;
 }
 
 /**
