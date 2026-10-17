@@ -3,6 +3,7 @@ import "./globals.css";
 import { AceProvider } from "@/context/ace-context";
 import { Navbar } from "@/components/navbar";
 import { OfflineBanner } from "@/components/offline-banner";
+import { InteractiveMistBackground } from "@/components/interactive-mist-bg";
 
 export const metadata: Metadata = {
   title: "Team ACE | Offline-First Competition Judging Platform",
@@ -21,9 +22,10 @@ export default function RootLayout({
       <head>
         <meta name="theme-color" content="#00F0FF" />
       </head>
-      <body className="min-h-screen bg-background text-slate-100 antialiased selection:bg-primary/30 selection:text-white">
+      <body className="min-h-screen bg-background text-slate-100 antialiased selection:bg-primary/30 selection:text-white relative">
+        <InteractiveMistBackground />
         <AceProvider>
-          <div className="relative min-h-screen flex flex-col">
+          <div className="relative min-h-screen flex flex-col z-10">
             <Navbar />
             <OfflineBanner />
             <main className="flex-1">{children}</main>
