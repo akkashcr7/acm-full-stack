@@ -53,7 +53,7 @@ export default function AdminPage() {
 
           <div className="pt-2 flex items-center justify-center">
             <Link
-              href="/login"
+              href="/login?role=admin"
               className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-primary hover:bg-primary-dark text-slate-950 font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-md shadow-primary/20"
             >
               <UserCheck className="w-4 h-4" />

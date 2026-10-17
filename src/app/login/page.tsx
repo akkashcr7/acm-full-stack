@@ -62,6 +62,14 @@ export default function LoginPage() {
       setProjectId(existing.projectId || "");
       setAppId(existing.appId || "");
     }
+
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const r = params.get("role") as UserRole | null;
+      if (r === "admin" || r === "judge" || r === "public") {
+        setSelectedRole(r);
+      }
+    }
   }, []);
 
   // Smart parser for pasting the entire firebaseConfig object from Firebase console

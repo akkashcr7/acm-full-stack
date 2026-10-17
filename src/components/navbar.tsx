@@ -158,6 +158,29 @@ export function Navbar() {
           )}
         </div>
       </div>
+
+      {/* Mobile Floating Bottom Bar for Field Judges on Tablets & Phones */}
+      <nav className="md:hidden fixed bottom-3 inset-x-3 z-50 glass-card bg-[#0D111E]/90 backdrop-blur-2xl border border-border/80 rounded-2xl py-2 px-3 shadow-2xl flex items-center justify-around">
+        {navLinks.map((link) => {
+          const Icon = link.icon;
+          const isActive = pathname === link.href;
+          return (
+            <Link
+              key={link.href}
+              href={link.href}
+              className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition-all relative ${
+                isActive ? "text-primary font-bold scale-105" : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              <Icon className="w-4 h-4" />
+              <span className="text-[10px] font-mono tracking-tight">{link.label}</span>
+              {isActive && (
+                <span className="w-1 h-1 rounded-full bg-primary shadow-[0_0_8px_#00F0FF] mt-0.5" />
+              )}
+            </Link>
+          );
+        })}
+      </nav>
     </header>
   );
 }

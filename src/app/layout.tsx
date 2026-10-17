@@ -28,7 +28,7 @@ export default function RootLayout({
           <div className="relative min-h-screen flex flex-col z-10">
             <Navbar />
             <OfflineBanner />
-            <main className="flex-1">{children}</main>
+            <main className="flex-1 pb-20 md:pb-6">{children}</main>
           </div>
         </AceProvider>
       </body>
