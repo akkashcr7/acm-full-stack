@@ -12,7 +12,17 @@ export interface FirebaseConfig {
 
 const STORAGE_KEY = "ace_firebase_config";
 
-export function getFirebaseConfig(): FirebaseConfig | null {
+// Active Team ACE Firebase project configuration
+const DEFAULT_FIREBASE_CONFIG: FirebaseConfig = {
+  apiKey: "AIzaSyDvm7Gh9eX_VXyGHtUWzE6t1QF_lJyRlUY",
+  authDomain: "team-ace-a1c81.firebaseapp.com",
+  projectId: "team-ace-a1c81",
+  storageBucket: "team-ace-a1c81.firebasestorage.app",
+  messagingSenderId: "932404424951",
+  appId: "1:932404424951:web:8660cd88ac28e87eba63f2",
+};
+
+export function getFirebaseConfig(): FirebaseConfig {
   if (typeof window !== "undefined") {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
@@ -27,7 +37,7 @@ export function getFirebaseConfig(): FirebaseConfig | null {
     }
   }
 
-  // Fallback to build-time environment variables
+  // Check build-time environment variables
   const envKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
   if (envKey && !envKey.includes("dummy")) {
     return {
@@ -42,7 +52,8 @@ export function getFirebaseConfig(): FirebaseConfig | null {
     };
   }
 
-  return null;
+  // Default connected project
+  return DEFAULT_FIREBASE_CONFIG;
 }
 
 export function isFirebaseConfigured(): boolean {
@@ -83,7 +94,7 @@ if (typeof window !== "undefined") {
     try {
       setupFirebase(cfg);
     } catch (e) {
-      console.warn("Failed to auto-init Firebase with stored config:", e);
+      console.warn("Failed to auto-init Firebase with active config:", e);
     }
   }
 }
