@@ -1,0 +1,101 @@
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  role      String   // admin, judge, public
+  createdAt DateTime @default(now())
+}
+
+model CompetitionEvent {
+  id          String   @id @default(cuid())
+  name        String
+  description String
+  date        String
+  status      String   @default("in_progress") // upcoming, in_progress, completed
+  createdAt   DateTime @default(now())
+}
+
+model Team {
+  id           String   @id @default(cuid())
+  name         String
+  robotName    String
+  organization String
+  eventId      String
+  qrCodeUrl    String   @default("")
+  createdAt    DateTime @default(now())
+}
+
+model ScoringCriterion {
+  id          String   @id @default(cuid())
+  name        String
+  description String   @default("")
+  maxScore    Float
+  weight      Float
+  category    String   // autonomous, teleop, design, innovation, general
+  eventId     String
+  createdAt   DateTime @default(now())
+}
+
+model ScoreSubmission {
+  id                 String   @id @default(cuid())
+  eventId            String
+  teamId             String
+  judgeId            String
+  judgeName          String
+  criteriaScores     String   // Serialized JSON of { criterionId, score }[]
+  penalties          Float    @default(0)
+  notes              String?
+  totalWeightedScore Float
+  version            Int      @default(1)
+  deviceId           String
+  isAnomaly          Boolean  @default(false)
+  anomalyReason      String?
+  createdAt          DateTime @default(now())
+  syncedAt           DateTime @default(now())
+}
+
+model ScoreConflict {
+  id               String    @id @default(cuid())
+  teamId           String
+  teamName         String
+  criterionId      String
+  criterionName    String
+  existingScore    String    // Serialized JSON
+  incomingScore    String    // Serialized JSON
+  status           String    @default("pending") // pending, resolved
+  resolutionPolicy String?
+  resolvedValue    Float?
+  resolvedBy       String?
+  resolvedAt       DateTime?
+}
+
+model AuditLog {
+  id             String   @id @default(cuid())
+  timestamp      DateTime @default(now())
+  action         String
+  actorId        String
+  actorName      String
+  actorRole      String
+  targetTeamId   String
+  targetTeamName String
+  oldValue       String?
+  newValue       String
+  details        String
+}
+
+model JudgeAssignment {
+  id        String @id @default(cuid())
+  judgeId   String
+  judgeName String
+  teamIds   String // Comma-separated or JSON
+  eventId   String
+}

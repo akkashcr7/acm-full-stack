@@ -7,6 +7,8 @@ import { ConflictCenter } from "@/components/admin/conflict-center";
 import { AuditLogTable } from "@/components/admin/audit-log-table";
 import { TeamQRView } from "@/components/admin/team-qr-view";
 import { JudgeAssignmentMatrix } from "@/components/admin/judge-assignment-matrix";
+import Link from "next/link";
+import { useAce } from "@/context/ace-context";
 import {
   Sliders,
   ShieldAlert,
@@ -14,9 +16,12 @@ import {
   QrCode,
   ShieldCheck,
   UserCheck,
+  Lock,
+  ArrowRight,
 } from "lucide-react";
 
 export default function AdminPage() {
+  const { currentUser, switchRole } = useAce();
   const [activeTab, setActiveTab] = useState<"criteria" | "conflicts" | "audit" | "teams" | "assignments">("criteria");
 
   const tabs = [
@@ -26,6 +31,47 @@ export default function AdminPage() {
     { id: "audit", label: "Audit Trail & CSV", icon: History },
     { id: "teams", label: "Teams & QR Badges", icon: QrCode },
   ] as const;
+
+  if (currentUser.role !== "admin") {
+    return (
+      <div className="max-w-xl mx-auto px-4 py-16 text-center">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="glass-card rounded-3xl p-8 border border-border/80 shadow-2xl space-y-5"
+        >
+          <div className="w-14 h-14 mx-auto rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400">
+            <Lock className="w-7 h-7" />
+          </div>
+          <div>
+            <h2 className="text-xl font-black text-white">
+              Administrator Clearance Required
+            </h2>
+            <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+              You are currently viewing as <strong className="text-white">{currentUser.name}</strong> ({currentUser.role}). Administrative authority is required to manage dynamic scoring rubrics, assign judges, and resolve multi-device scoring conflicts.
+            </p>
+          </div>
+
+          <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+            <Link
+              href="/login"
+              className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-primary hover:bg-primary-dark text-slate-950 font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-md shadow-primary/20"
+            >
+              <UserCheck className="w-4 h-4" />
+              <span>Sign In as Admin</span>
+            </Link>
+            <button
+              onClick={() => switchRole("admin")}
+              className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-surface-100 hover:bg-surface-200 border border-border/80 text-white font-mono text-xs flex items-center justify-center gap-2 transition-colors"
+            >
+              <span>Switch Identity to Admin</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">

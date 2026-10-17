@@ -13,13 +13,13 @@ import {
   Settings,
   QrCode,
   Sparkles,
+  UserCheck,
 } from "lucide-react";
 
 export function Navbar() {
   const pathname = usePathname();
   const {
     currentUser,
-    switchRole,
     isOnline,
     isSimulated,
     toggleSimulatedOffline,
@@ -137,25 +137,41 @@ export function Navbar() {
             </span>
           </div>
 
-          {/* Persona / Role Selector (Critical for Demo reviewers!) */}
-          <div className="flex items-center gap-1 bg-surface-100 p-1 rounded-lg border border-border/60">
-            {(["public", "judge", "admin"] as const).map((role) => {
-              const isCurrent = currentUser.role === role;
-              return (
-                <button
-                  key={role}
-                  onClick={() => switchRole(role)}
-                  className={`px-2 py-1 rounded text-[11px] font-medium capitalize transition-all ${
-                    isCurrent
-                      ? "bg-primary text-black font-semibold shadow-sm"
-                      : "text-slate-400 hover:text-slate-200"
-                  }`}
-                >
-                  {role}
-                </button>
-              );
-            })}
-          </div>
+          {/* User Account / Sign In / Role */}
+          {currentUser.role === "public" ? (
+            <Link
+              href="/login"
+              className="px-3 py-1.5 rounded-xl bg-primary hover:bg-primary-dark text-slate-950 font-bold text-xs flex items-center gap-1.5 transition-all shadow-md shadow-primary/20 hover:scale-105"
+            >
+              <UserCheck className="w-3.5 h-3.5" />
+              <span>Sign In</span>
+            </Link>
+          ) : (
+            <div className="flex items-center gap-2 bg-surface-100 p-1 pl-2 rounded-xl border border-border/60">
+              <div className="flex items-center gap-1.5">
+                <div className="w-5 h-5 rounded-full bg-primary/20 text-primary flex items-center justify-center text-[10px] font-bold">
+                  {currentUser.name.charAt(0)}
+                </div>
+                <div className="hidden sm:block text-left">
+                  <p className="text-[11px] font-bold text-white leading-none truncate max-w-[100px]">
+                    {currentUser.name.split(" ")[0]}
+                  </p>
+                  <p className="text-[9px] font-mono uppercase text-primary leading-tight">
+                    {currentUser.role}
+                  </p>
+                </div>
+              </div>
+
+              {/* Quick switch or logout */}
+              <Link
+                href="/login"
+                title="Switch account or sign out"
+                className="px-2 py-1 rounded-lg text-[10px] font-mono text-slate-400 hover:text-white hover:bg-surface-200 transition-colors"
+              >
+                Switch
+              </Link>
+            </div>
+          )}
         </div>
       </div>
     </header>

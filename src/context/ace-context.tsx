@@ -15,6 +15,8 @@ interface AceContextType {
   currentUser: User;
   setCurrentUser: (user: User) => void;
   switchRole: (role: UserRole) => void;
+  login: (email: string, password?: string) => Promise<{ success: boolean; error?: string }>;
+  logout: () => void;
   isOnline: boolean;
   isSimulated: boolean;
   toggleSimulatedOffline: () => void;
@@ -27,15 +29,17 @@ interface AceContextType {
 const DEMO_USERS: Record<UserRole, User> = {
   admin: {
     id: "usr_admin",
-    name: "Alex Vance",
+    name: "Alex Vance (Lead Admin)",
     email: "admin@ace.ai",
     role: "admin",
+    avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80",
   },
   judge: {
     id: "usr_judge1",
-    name: "Dr. Sarah Chen",
+    name: "Dr. Sarah Chen (Judge 1)",
     email: "judge1@ace.ai",
     role: "judge",
+    avatar: "https://images.unsplash.com/photo-1580489944761-15a19d654956?w=100&auto=format&fit=crop&q=80",
   },
   public: {
     id: "usr_public",
@@ -55,13 +59,22 @@ export function AceProvider({ children }: { children: React.ReactNode }) {
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [lastSyncMessage, setLastSyncMessage] = useState<string | null>(null);
 
-  // Load active role and initial offline queue
+  // Load active user session and initial offline queue
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const savedRole = localStorage.getItem("ace_active_role") as UserRole | null;
-    if (savedRole && DEMO_USERS[savedRole]) {
-      setCurrentUser(DEMO_USERS[savedRole]);
+    try {
+      const storedUser = localStorage.getItem("ace_current_user");
+      if (storedUser) {
+        setCurrentUser(JSON.parse(storedUser));
+      } else {
+        const savedRole = localStorage.getItem("ace_active_role") as UserRole | null;
+        if (savedRole && DEMO_USERS[savedRole]) {
+          setCurrentUser(DEMO_USERS[savedRole]);
+        }
+      }
+    } catch {
+      // Fallback
     }
 
     setIsSimulated(isSimulatedOffline());
@@ -176,12 +189,50 @@ export function AceProvider({ children }: { children: React.ReactNode }) {
     setTimeout(() => setLastSyncMessage(null), 4000);
   };
 
+  const login = async (email: string, password?: string) => {
+    try {
+      const res = await fetch("/api/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.user) {
+        return { success: false, error: data.error || "Login failed" };
+      }
+
+      setCurrentUser(data.user);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("ace_current_user", JSON.stringify(data.user));
+        localStorage.setItem("ace_active_role", data.user.role);
+        if (data.token) {
+          localStorage.setItem("ace_session_token", data.token);
+        }
+      }
+      return { success: true };
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : "Network error during login";
+      return { success: false, error: errorMsg };
+    }
+  };
+
+  const logout = () => {
+    setCurrentUser(DEMO_USERS.public);
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("ace_current_user");
+      localStorage.setItem("ace_active_role", "public");
+      localStorage.removeItem("ace_session_token");
+    }
+  };
+
   return (
     <AceContext.Provider
       value={{
         currentUser,
         setCurrentUser,
         switchRole,
+        login,
+        logout,
         isOnline,
         isSimulated,
         toggleSimulatedOffline,

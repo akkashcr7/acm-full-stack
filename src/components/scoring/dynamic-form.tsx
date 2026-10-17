@@ -94,11 +94,13 @@ export function DynamicScoringForm({ initialTeamId }: { initialTeamId?: string }
     };
 
     loadData();
-  }, [selectedTeamId]);
+  }, [selectedTeamId, currentUser.id]);
 
-  // Camera scanner handling
+  // Camera scanner handling with real-time BarcodeDetector
   useEffect(() => {
     let stream: MediaStream | null = null;
+    let scanInterval: NodeJS.Timeout | null = null;
+
     if (showQRModal) {
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         navigator.mediaDevices
@@ -109,6 +111,42 @@ export function DynamicScoringForm({ initialTeamId }: { initialTeamId?: string }
             if (videoRef.current) {
               videoRef.current.srcObject = s;
             }
+
+            // Real-time BarcodeDetector API for instant QR decoding
+            if (typeof window !== "undefined" && "BarcodeDetector" in window) {
+              try {
+                // @ts-expect-error Native BarcodeDetector
+                const detector = new window.BarcodeDetector({ formats: ["qr_code"] });
+                scanInterval = setInterval(async () => {
+                  if (
+                    videoRef.current &&
+                    videoRef.current.readyState >= 2
+                  ) {
+                    try {
+                      const barcodes = await detector.detect(videoRef.current);
+                      if (barcodes && barcodes.length > 0) {
+                        const raw = barcodes[0].rawValue || "";
+                        const matched = teams.find(
+                          (t) =>
+                            t.id === raw ||
+                            raw.includes(t.id) ||
+                            raw.toLowerCase().includes(t.name.toLowerCase())
+                        );
+                        if (matched) {
+                          sounds.playSuccess();
+                          setSelectedTeamId(matched.id);
+                          setShowQRModal(false);
+                        }
+                      }
+                    } catch {
+                      // Skip frame if decoding in progress
+                    }
+                  }
+                }, 300);
+              } catch {
+                // BarcodeDetector format not supported
+              }
+            }
           })
           .catch(() => {
             setCameraActive(false);
@@ -118,6 +156,7 @@ export function DynamicScoringForm({ initialTeamId }: { initialTeamId?: string }
       if (stream) {
         (stream as MediaStream).getTracks().forEach((track) => track.stop());
       }
+      if (scanInterval) clearInterval(scanInterval);
       setCameraActive(false);
     }
 
@@ -125,8 +164,9 @@ export function DynamicScoringForm({ initialTeamId }: { initialTeamId?: string }
       if (stream) {
         (stream as MediaStream).getTracks().forEach((track) => track.stop());
       }
+      if (scanInterval) clearInterval(scanInterval);
     };
-  }, [showQRModal]);
+  }, [showQRModal, teams]);
 
   const applyPreset = (type: "perfect" | "penalty" | "anomaly") => {
     sounds.playClick();
