@@ -152,7 +152,20 @@ export function Navbar() {
                 : "bg-surface-100 border-border/60 text-slate-400 hover:text-white"
             }`}
           >
-            {voiceActive ? <Volume2 className="w-3.5 h-3.5 text-primary" /> : <VolumeX className="w-3.5 h-3.5" />}
+            {voiceActive ? (
+              <div className="flex items-center gap-1">
+                <Volume2 className="w-3.5 h-3.5 text-primary" />
+                {/* 4-bar cyber audio waveform */}
+                <div className="flex items-end gap-[2px] h-3">
+                  <span className="w-[2px] h-1.5 bg-primary rounded-full animate-pulse" />
+                  <span className="w-[2px] h-3 bg-primary rounded-full animate-bounce" />
+                  <span className="w-[2px] h-2 bg-primary rounded-full animate-pulse" />
+                  <span className="w-[2px] h-2.5 bg-primary rounded-full animate-bounce" />
+                </div>
+              </div>
+            ) : (
+              <VolumeX className="w-3.5 h-3.5" />
+            )}
             <span className="hidden sm:inline text-[10px] font-bold">
               {voiceActive ? "Voice ON" : "Voice"}
             </span>

@@ -274,7 +274,7 @@ export function LeaderboardView() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0 }}
                   transition={{ type: "spring", stiffness: 350, damping: 28 }}
-                  className={`glass-card rounded-2xl border transition-all overflow-hidden ${
+                  className={`glass-card holo-card rounded-2xl border transition-all overflow-hidden ${
                     isTopThree ? "border-primary/25 shadow-lg shadow-primary/5" : "border-border/60"
                   }`}
                 >

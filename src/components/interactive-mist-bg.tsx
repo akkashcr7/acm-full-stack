@@ -35,16 +35,16 @@ export function InteractiveMistBackground() {
     const mouse = {
       x: -1000,
       y: -1000,
-      radius: 160, // repel interaction radius
+      radius: 170, // repel interaction radius
       isActive: false,
     };
 
     // Color palette matching the cyber-robotics theme (Cyan, Violet, Electric Blue)
     const colors = [
-      "0, 240, 255",   // Neon Cyan
-      "139, 92, 246",  // Violet
-      "56, 189, 248",  // Light Sky
-      "99, 102, 241",  // Indigo
+      "0, 240, 255", // Neon Cyan
+      "139, 92, 246", // Violet
+      "56, 189, 248", // Light Sky
+      "99, 102, 241", // Indigo
     ];
 
     const particleCount = Math.min(85, Math.floor((width * height) / 14000));
@@ -104,42 +104,94 @@ export function InteractiveMistBackground() {
     window.addEventListener("mouseleave", handleMouseLeave);
     window.addEventListener("touchmove", handleTouchMove, { passive: true });
 
+    const gridSize = 46;
+
     // Render loop
     const render = () => {
       ctx.clearRect(0, 0, width, height);
 
+      // Layer 1: Base Cybernetic Arena Grid
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.02)";
+      ctx.beginPath();
+      for (let x = 0; x < width; x += gridSize) {
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, height);
+      }
+      for (let y = 0; y < height; y += gridSize) {
+        ctx.moveTo(0, y);
+        ctx.lineTo(width, y);
+      }
+      ctx.stroke();
+
+      // Layer 2: Interactive Cursor Arena Flashlight / Grid Spotlight
+      if (mouse.isActive) {
+        const spotRadius = 260;
+        const spotGrad = ctx.createRadialGradient(
+          mouse.x,
+          mouse.y,
+          0,
+          mouse.x,
+          mouse.y,
+          spotRadius
+        );
+        spotGrad.addColorStop(0, "rgba(0, 240, 255, 0.22)");
+        spotGrad.addColorStop(0.35, "rgba(99, 102, 241, 0.12)");
+        spotGrad.addColorStop(0.7, "rgba(0, 240, 255, 0.04)");
+        spotGrad.addColorStop(1, "rgba(0, 240, 255, 0)");
+
+        ctx.save();
+        ctx.strokeStyle = spotGrad;
+        ctx.lineWidth = 1.3;
+        ctx.beginPath();
+
+        // Calculate bounded box to keep 60fps performance
+        const minX = Math.max(0, Math.floor((mouse.x - spotRadius) / gridSize) * gridSize);
+        const maxX = Math.min(width, Math.ceil((mouse.x + spotRadius) / gridSize) * gridSize);
+        const minY = Math.max(0, Math.floor((mouse.y - spotRadius) / gridSize) * gridSize);
+        const maxY = Math.min(height, Math.ceil((mouse.y + spotRadius) / gridSize) * gridSize);
+
+        for (let x = minX; x <= maxX; x += gridSize) {
+          ctx.moveTo(x, minY);
+          ctx.lineTo(x, maxY);
+        }
+        for (let y = minY; y <= maxY; y += gridSize) {
+          ctx.moveTo(minX, y);
+          ctx.lineTo(maxX, y);
+        }
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // Layer 3: Dynamic Mist Particles with Cursor Fluid Repulsion
       for (let i = 0; i < particles.length; i++) {
         const p = particles[i];
 
-        // 1. Ambient gentle floating motion
+        // Gentle floating motion
         p.x += p.vx;
         p.y += p.vy;
 
-        // Wrap around screen boundaries with margin
+        // Wrap around boundaries
         const pad = p.radius * 1.5;
         if (p.x < -pad) p.x = width + pad;
         if (p.x > width + pad) p.x = -pad;
         if (p.y < -pad) p.y = height + pad;
         if (p.y > height + pad) p.y = -pad;
 
-        // 2. Interactive Cursor Repulsion (Mist parting physics)
+        // Interactive Cursor Repulsion (Mist parting physics)
         if (mouse.isActive) {
           const dx = p.x - mouse.x;
           const dy = p.y - mouse.y;
           const dist = Math.sqrt(dx * dx + dy * dy);
 
           if (dist < mouse.radius) {
-            // Repel force: stronger when closer
             const force = (1 - dist / mouse.radius) * 4.5;
             const angle = Math.atan2(dy, dx);
             const repelX = Math.cos(angle) * force;
             const repelY = Math.sin(angle) * force;
 
-            // Apply push with smooth acceleration
             p.vx += repelX * 0.12;
             p.vy += repelY * 0.12;
-
-            // Brighten slightly upon interaction
             p.alpha = Math.min(0.28, p.baseAlpha * 2.2);
           }
         }
@@ -154,7 +206,7 @@ export function InteractiveMistBackground() {
         const currentAlpha = Math.max(0.03, p.alpha + breath);
         p.alpha += (p.baseAlpha - p.alpha) * 0.02;
 
-        // 3. Draw soft feathered radial glow
+        // Draw soft feathered radial glow
         const gradient = ctx.createRadialGradient(
           p.x,
           p.y,
@@ -188,10 +240,20 @@ export function InteractiveMistBackground() {
   }, []);
 
   return (
-    <canvas
-      ref={canvasRef}
-      className="fixed inset-0 pointer-events-none z-0"
-      style={{ opacity: 0.85 }}
-    />
+    <>
+      {/* Background Ambient Aurora Gradient Nodes */}
+      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+        <div className="absolute -top-36 -left-36 w-96 h-96 bg-cyan-500/10 rounded-full blur-[140px] animate-pulse-slow" />
+        <div className="absolute top-1/2 -right-36 w-96 h-96 bg-indigo-600/10 rounded-full blur-[160px] animate-pulse-slow" />
+        <div className="absolute -bottom-36 left-1/3 w-96 h-96 bg-purple-600/10 rounded-full blur-[150px] animate-pulse-slow" />
+      </div>
+
+      {/* Interactive Canvas (Cyber Arena Floor Grid + Mouse Spotlight + Swirling Mist) */}
+      <canvas
+        ref={canvasRef}
+        className="fixed inset-0 pointer-events-none z-0"
+        style={{ opacity: 0.9 }}
+      />
+    </>
   );
 }
