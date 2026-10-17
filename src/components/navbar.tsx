@@ -40,6 +40,7 @@ export function Navbar() {
   const {
     currentUser,
     isOnline,
+    toggleSimulatedOffline,
     pendingQueueCount,
     triggerManualSync,
     isSyncing,
@@ -129,17 +130,38 @@ export function Navbar() {
             </button>
           )}
 
-          {/* Online / Offline Status Badge */}
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-100 border border-border/60 text-[11px] font-mono">
+          {/* Online / Offline Status Badge with Interactive Toggle */}
+          <button
+            type="button"
+            onClick={() => {
+              sounds.playClick();
+              toggleSimulatedOffline();
+            }}
+            title={
+              isOnline
+                ? "Status: Connected. Click to test Offline / Airplane Mode"
+                : "Status: Offline (Airplane Mode). Click to Reconnect Network"
+            }
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-full border text-[11px] font-mono transition-all cursor-pointer ${
+              isOnline
+                ? "bg-emerald-950/30 hover:bg-emerald-900/40 border-emerald-500/40 text-emerald-300"
+                : "bg-amber-500/20 hover:bg-amber-500/30 border-amber-500/50 text-amber-300 shadow-[0_0_12px_rgba(245,158,11,0.25)] animate-pulse"
+            }`}
+          >
             <span
               className={`w-2 h-2 rounded-full ${
-                isOnline ? "bg-emerald-400 shadow-[0_0_8px_#34d399]" : "bg-amber-400 animate-ping"
+                isOnline
+                  ? "bg-emerald-400 shadow-[0_0_8px_#34d399]"
+                  : "bg-amber-400 shadow-[0_0_8px_#f59e0b] animate-ping"
               }`}
             />
-            <span className="hidden sm:inline text-slate-300">
+            <span className="font-bold">
               {isOnline ? "ONLINE" : "OFFLINE"}
             </span>
-          </div>
+            <span className="hidden md:inline text-[9px] text-slate-400">
+              {isOnline ? "(Click for Airplane)" : "(Airplane Active)"}
+            </span>
+          </button>
 
           {/* Arena AI Voice Announcer Button */}
           <button

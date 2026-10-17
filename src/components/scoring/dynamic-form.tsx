@@ -45,36 +45,7 @@ export function DynamicScoringForm({ initialTeamId }: { initialTeamId?: string }
   useEffect(() => {
     const loadData = async () => {
       try {
-        if (isNetworkOnline()) {
-          const [teamsRes, critRes, asgnRes] = await Promise.all([
-            fetch("/api/teams"),
-            fetch("/api/criteria"),
-            fetch("/api/assignments"),
-          ]);
-          if (teamsRes.ok && critRes.ok) {
-            const { teams } = await teamsRes.json();
-            const { criteria } = await critRes.json();
-            setTeams(teams);
-            setCriteria(criteria);
-            if (asgnRes.ok) {
-              const { assignments } = await asgnRes.json();
-              const myAsgn = assignments?.find((a: JudgeAssignment) => a.judgeId === currentUser.id);
-              if (myAsgn) setAssignedTeamIds(myAsgn.teamIds);
-            }
-            if (!selectedTeamId && teams.length > 0) {
-              setSelectedTeamId(teams[0].id);
-            }
-            // Initialize default scores
-            const initialScores: Record<string, number> = {};
-            for (const c of criteria) {
-              initialScores[c.id] = Math.round(c.maxScore * 0.75);
-            }
-            setScores(initialScores);
-            return;
-          }
-        }
-
-        // Offline Fallback: Load from IndexedDB
+        // 1. Immediately hydrate from IndexedDB offline cache for instantaneous loading
         if (offlineDB) {
           const cachedTeams = await offlineDB.cachedTeams.toArray();
           const cachedCriteria = await offlineDB.cachedCriteria.toArray();
@@ -91,8 +62,52 @@ export function DynamicScoringForm({ initialTeamId }: { initialTeamId?: string }
             setScores(initialScores);
           }
         }
+
+        // 2. If online, fetch fresh metadata with timeout
+        if (isNetworkOnline()) {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 2000);
+
+          const [teamsRes, critRes, asgnRes] = await Promise.all([
+            fetch("/api/teams", { signal: controller.signal }),
+            fetch("/api/criteria", { signal: controller.signal }),
+            fetch("/api/assignments", { signal: controller.signal }),
+          ]);
+          clearTimeout(timeoutId);
+
+          if (teamsRes.ok && critRes.ok) {
+            const { teams: freshTeams } = await teamsRes.json();
+            const { criteria: freshCriteria } = await critRes.json();
+            setTeams(freshTeams);
+            setCriteria(freshCriteria);
+            if (asgnRes.ok) {
+              const { assignments } = await asgnRes.json();
+              const myAsgn = assignments?.find((a: JudgeAssignment) => a.judgeId === currentUser.id);
+              if (myAsgn) setAssignedTeamIds(myAsgn.teamIds);
+            }
+            if (!selectedTeamId && freshTeams.length > 0) {
+              setSelectedTeamId(freshTeams[0].id);
+            }
+            // Update IndexedDB cache
+            const db = offlineDB;
+            if (db) {
+              await db.transaction("rw", db.cachedTeams, db.cachedCriteria, async () => {
+                await db.cachedTeams.clear();
+                await db.cachedTeams.bulkAdd(freshTeams);
+                await db.cachedCriteria.clear();
+                await db.cachedCriteria.bulkAdd(freshCriteria);
+              });
+            }
+            // Initialize default scores
+            const initialScores: Record<string, number> = {};
+            for (const c of freshCriteria) {
+              initialScores[c.id] = Math.round(c.maxScore * 0.75);
+            }
+            setScores(initialScores);
+          }
+        }
       } catch (err) {
-        console.error("Failed to load scoring setup:", err);
+        console.warn("Dynamic form offline or fetch aborted:", err);
       }
     };
 
@@ -223,12 +238,17 @@ export function DynamicScoringForm({ initialTeamId }: { initialTeamId?: string }
         return;
       }
 
-      // Online: Submit directly to API
+      // Online: Submit directly to API with 2.5s timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2500);
+
       const res = await fetch("/api/scores", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(submissionPayload),
+        signal: controller.signal,
       });
+      clearTimeout(timeoutId);
 
       const data = await res.json();
 
@@ -259,11 +279,28 @@ export function DynamicScoringForm({ initialTeamId }: { initialTeamId?: string }
         });
       }
     } catch (err: unknown) {
-      const errorMsg = err instanceof Error ? err.message : "Error submitting score";
-      setStatusMessage({
-        type: "error",
-        text: errorMsg,
-      });
+      // If network unreachable, aborted, or connection dropped (airplane mode)
+      console.warn("Online score submission failed, auto-buffering to IndexedDB:", err);
+      try {
+        await queueScoreOffline({
+          ...submissionPayload,
+          teamName: selectedTeam.name,
+        });
+        window.dispatchEvent(new Event("ace-connection-change"));
+        sounds.playSync();
+        setStatusMessage({
+          type: "offline",
+          text: `Network unreachable: Score (${liveTotalScore.toFixed(
+            1
+          )} pts) safely queued in IndexedDB. Will auto-sync when online!`,
+        });
+      } catch (queueErr) {
+        const errorMsg = queueErr instanceof Error ? queueErr.message : "Error submitting score";
+        setStatusMessage({
+          type: "error",
+          text: errorMsg,
+        });
+      }
     } finally {
       setSubmitting(false);
     }

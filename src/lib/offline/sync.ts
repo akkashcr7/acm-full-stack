@@ -7,19 +7,61 @@ export interface SyncResult {
   errors: string[];
 }
 
+export function isSimulatedOffline(): boolean {
+  if (typeof window === "undefined") return false;
+  return localStorage.getItem("ace_simulated_offline") === "true";
+}
+
+export function setSimulatedOffline(offline: boolean) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem("ace_simulated_offline", offline ? "true" : "false");
+  window.dispatchEvent(new Event("ace-connection-change"));
+}
+
 /**
- * Checks if the browser is currently online based on real network connectivity
+ * Checks if the browser is currently online based on real network connectivity and simulation flag
  */
 export function isNetworkOnline(): boolean {
   if (typeof window === "undefined") return true;
+  if (isSimulatedOffline()) return false;
   return navigator.onLine;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export function setSimulatedOffline(_offline?: boolean) {}
+/**
+ * Cache current leaderboard standings in localStorage for instantaneous offline rendering
+ */
+export function cacheLeaderboardForOffline(leaderboard: unknown[], criteria?: unknown[]) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(
+      "ace_cached_leaderboard",
+      JSON.stringify({
+        leaderboard,
+        criteria,
+        cachedAt: new Date().toISOString(),
+      })
+    );
+  } catch (err) {
+    console.warn("Failed to cache leaderboard locally:", err);
+  }
+}
 
-export function isSimulatedOffline(): boolean {
-  return false;
+/**
+ * Retrieve locally cached leaderboard standings
+ */
+export function getCachedLeaderboard(): {
+  leaderboard: unknown[];
+  criteria?: unknown[];
+  cachedAt?: string;
+} | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem("ace_cached_leaderboard");
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
 }
 
 /**

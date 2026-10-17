@@ -17,12 +17,20 @@ import {
   Volume2,
   VolumeX,
   Clock,
+  WifiOff,
 } from "lucide-react";
 import { sounds } from "@/lib/sound";
 import { PerformanceRadar } from "../analytics/performance-radar";
 import { announcer } from "@/lib/announcer";
+import { useAce } from "@/context/ace-context";
+import {
+  isNetworkOnline,
+  cacheLeaderboardForOffline,
+  getCachedLeaderboard,
+} from "@/lib/offline/sync";
 
 export function LeaderboardView() {
+  const { isOnline } = useAce();
   const [entries, setEntries] = useState<TeamLeaderboardEntry[]>([]);
   const [criteria, setCriteria] = useState<ScoringCriterion[]>([]);
   const [eventName, setEventName] = useState<string>("Team ACE Robotics Championship");
@@ -34,85 +42,122 @@ export function LeaderboardView() {
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
 
-  // Initial Fetch & SSE Subscription
+  // Initial Fetch & SSE Subscription with Offline Hydration
   useEffect(() => {
     let eventSource: EventSource | null = null;
+    let isMounted = true;
+
+    // 1. Immediately hydrate from local storage cache if available
+    const cached = getCachedLeaderboard();
+    if (cached && Array.isArray(cached.leaderboard) && cached.leaderboard.length > 0) {
+      setEntries(cached.leaderboard as TeamLeaderboardEntry[]);
+      if (cached.criteria) setCriteria(cached.criteria as ScoringCriterion[]);
+      setLoading(false);
+    }
 
     const fetchInitial = async () => {
       try {
-        const res = await fetch("/api/leaderboard");
-        if (res.ok) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2000);
+        const res = await fetch("/api/leaderboard", {
+          signal: controller.signal,
+          cache: "no-store",
+        });
+        clearTimeout(timeoutId);
+        if (res.ok && isMounted) {
           const data = await res.json();
           setEntries(data.leaderboard || []);
           setCriteria(data.criteria || []);
           if (data.event?.name) setEventName(data.event.name);
-          setLoading(false);
+          cacheLeaderboardForOffline(data.leaderboard || [], data.criteria || []);
         }
       } catch (err) {
-        console.error("Initial leaderboard fetch failed:", err);
-        setLoading(false);
+        console.warn("Initial leaderboard fetch offline/failed:", err);
+      } finally {
+        if (isMounted) setLoading(false);
       }
     };
 
     fetchInitial();
 
-    // Connect to Server-Sent Events (SSE) for < 2-second real-time live updates!
-    try {
-      eventSource = new EventSource("/api/leaderboard/stream");
+    // 2. Connect to Server-Sent Events (SSE) if online
+    if (isNetworkOnline()) {
+      try {
+        eventSource = new EventSource("/api/leaderboard/stream");
 
-      eventSource.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          if (data.leaderboard) {
-            setEntries((prev) => {
-              if (
-                data.leaderboard.length > 0 &&
-                prev.length > 0 &&
-                prev[0].team.id !== data.leaderboard[0].team.id
-              ) {
-                announcer.announceLeadChange(
-                  data.leaderboard[0].team.name,
-                  data.leaderboard[0].totalScore
-                );
-              }
-              return data.leaderboard;
-            });
-            setLastUpdated(new Date());
-            sounds.playSync();
-            // Flash live pulse
-            setLivePulse(true);
-            setTimeout(() => setLivePulse(false), 1200);
+        eventSource.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data.leaderboard && isMounted) {
+              setEntries((prev) => {
+                if (
+                  data.leaderboard.length > 0 &&
+                  prev.length > 0 &&
+                  prev[0].team.id !== data.leaderboard[0].team.id
+                ) {
+                  announcer.announceLeadChange(
+                    data.leaderboard[0].team.name,
+                    data.leaderboard[0].totalScore
+                  );
+                }
+                return data.leaderboard;
+              });
+              setLastUpdated(new Date());
+              sounds.playSync();
+              setLivePulse(true);
+              setTimeout(() => setLivePulse(false), 1200);
+              cacheLeaderboardForOffline(data.leaderboard || [], data.criteria || []);
+            }
+          } catch {
+            // ignore non-json pings
           }
-        } catch {
-          // ignore non-json pings
-        }
-      };
+        };
 
-      eventSource.onerror = () => {
-        // Fallback polling every 3 seconds if SSE connection drops
-        eventSource?.close();
-      };
-    } catch {
-      console.warn("SSE not available, relying on polling fallback");
+        eventSource.onerror = () => {
+          eventSource?.close();
+        };
+      } catch {
+        // SSE not supported
+      }
     }
 
-    // Polling fallback interval to ensure sync even if SSE is interrupted
+    // 3. Polling fallback interval to ensure sync even if SSE is interrupted
     const interval = setInterval(async () => {
+      if (!isNetworkOnline()) return;
       try {
-        const res = await fetch("/api/leaderboard");
-        if (res.ok) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2000);
+        const res = await fetch("/api/leaderboard", {
+          signal: controller.signal,
+          cache: "no-store",
+        });
+        clearTimeout(timeoutId);
+        if (res.ok && isMounted) {
           const data = await res.json();
           setEntries(data.leaderboard || []);
           if (data.criteria) setCriteria(data.criteria);
+          cacheLeaderboardForOffline(data.leaderboard || [], data.criteria || []);
         }
       } catch {
         // silent offline
       }
-    }, 3000);
+    }, 3500);
+
+    const handleConnectionChange = () => {
+      if (isNetworkOnline()) {
+        fetchInitial();
+      }
+    };
+
+    window.addEventListener("ace-connection-change", handleConnectionChange);
+    window.addEventListener("online", handleConnectionChange);
 
     return () => {
+      isMounted = false;
       if (eventSource) eventSource.close();
       clearInterval(interval);
+      window.removeEventListener("ace-connection-change", handleConnectionChange);
+      window.removeEventListener("online", handleConnectionChange);
     };
   }, []);
 
@@ -203,6 +248,24 @@ export function LeaderboardView() {
 
       {/* Top 3 Podium (Hidden in compact mobile view if projector mode is off) */}
       {!loading && entries.length > 0 && <Podium entries={entries} />}
+
+      {/* Offline Alert Ribbon */}
+      {!isOnline && (
+        <div className="mt-4 mb-2 px-4 py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <WifiOff className="w-4 h-4 text-amber-400 shrink-0" />
+            <div>
+              <span className="font-semibold text-amber-300">Offline / Airplane Mode Active</span>
+              <span className="text-amber-200/80 ml-1.5 hidden sm:inline">
+                Displaying latest locally cached standings. Live server sync is paused.
+              </span>
+            </div>
+          </div>
+          <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">
+            Cached Standings
+          </span>
+        </div>
+      )}
 
       {/* Search Filter Bar */}
       <div className="mt-6 mb-3 relative">
