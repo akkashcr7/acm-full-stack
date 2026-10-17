@@ -12,9 +12,14 @@ import {
   ChevronDown,
   ChevronUp,
   RotateCw,
-  Clock,
   Layers,
+  Search,
+  Play,
+  Volume2,
+  VolumeX,
+  Clock,
 } from "lucide-react";
+import { sounds } from "@/lib/sound";
 
 export function LeaderboardView() {
   const [entries, setEntries] = useState<TeamLeaderboardEntry[]>([]);
@@ -25,6 +30,9 @@ export function LeaderboardView() {
   const [expandedTeamId, setExpandedTeamId] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   const [livePulse, setLivePulse] = useState<boolean>(false);
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
+  const [simulating, setSimulating] = useState<boolean>(false);
 
   // Initial Fetch & SSE Subscription
   useEffect(() => {
@@ -58,6 +66,7 @@ export function LeaderboardView() {
           if (data.leaderboard) {
             setEntries(data.leaderboard);
             setLastUpdated(new Date());
+            sounds.playSync();
             // Flash live pulse
             setLivePulse(true);
             setTimeout(() => setLivePulse(false), 1200);
@@ -96,8 +105,54 @@ export function LeaderboardView() {
   }, []);
 
   const toggleExpand = (teamId: string) => {
+    sounds.playClick();
     setExpandedTeamId(expandedTeamId === teamId ? null : teamId);
   };
+
+  const simulateLiveRun = async () => {
+    sounds.playClick();
+    setSimulating(true);
+    try {
+      const pendingTeams = entries.filter((e) => e.runsCount === 0);
+      const targetTeam =
+        pendingTeams.length > 0
+          ? pendingTeams[0].team
+          : entries[Math.floor(Math.random() * entries.length)].team;
+
+      const randomScores = criteria.map((c) => ({
+        criterionId: c.id,
+        score: Math.round(c.maxScore * (0.72 + Math.random() * 0.26)),
+      }));
+
+      await fetch("/api/scores", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          eventId: "evt_ace_2026",
+          teamId: targetTeam.id,
+          judgeId: "usr_judge2",
+          judgeName: "Marcus Brody (Judge 2)",
+          criteriaScores: randomScores,
+          penalties: Math.random() > 0.7 ? 1 : 0,
+          notes: "Live simulated trial run in arena.",
+          version: 1,
+          deviceId: "simulator_console",
+        }),
+      });
+      sounds.playSuccess();
+    } catch (err) {
+      console.error("Live trial simulation failed:", err);
+    } finally {
+      setSimulating(false);
+    }
+  };
+
+  const filteredEntries = entries.filter(
+    (e) =>
+      e.team.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      e.team.robotName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      e.team.organization.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
     <div
@@ -134,6 +189,34 @@ export function LeaderboardView() {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Sound Toggle */}
+          <button
+            onClick={() => {
+              const next = !soundEnabled;
+              setSoundEnabled(next);
+              sounds.enabled = next;
+              if (next) sounds.playClick();
+            }}
+            title={soundEnabled ? "Sound enabled" : "Sound muted"}
+            className="p-2 rounded-xl bg-surface-100 hover:bg-surface-50 border border-border/80 text-xs text-slate-300 transition-colors"
+          >
+            {soundEnabled ? (
+              <Volume2 className="w-4 h-4 text-primary" />
+            ) : (
+              <VolumeX className="w-4 h-4 text-slate-500" />
+            )}
+          </button>
+
+          {/* Simulate Live Run */}
+          <button
+            onClick={simulateLiveRun}
+            disabled={simulating}
+            className="px-3 py-2 rounded-xl bg-primary/15 hover:bg-primary/25 border border-primary/40 text-xs font-semibold text-primary flex items-center gap-1.5 transition-all shadow-md shadow-primary/10"
+          >
+            <Play className={`w-3.5 h-3.5 fill-primary ${simulating ? "animate-spin" : ""}`} />
+            <span>{simulating ? "Simulating..." : "Simulate Trial Run"}</span>
+          </button>
+
           {/* Projector Mode Toggle */}
           <button
             onClick={() => setIsProjectorMode(!isProjectorMode)}
@@ -157,8 +240,20 @@ export function LeaderboardView() {
       {/* Top 3 Podium (Hidden in compact mobile view if projector mode is off) */}
       {!loading && entries.length > 0 && <Podium entries={entries} />}
 
+      {/* Search Filter Bar */}
+      <div className="mt-6 mb-3 relative">
+        <Search className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
+        <input
+          type="text"
+          placeholder="Search by team, robot model, or organization..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full pl-10 pr-4 py-2 rounded-xl bg-surface-100 border border-border/60 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-primary"
+        />
+      </div>
+
       {/* Leaderboard Table / Card List */}
-      <div className="mt-6 space-y-2.5">
+      <div className="space-y-2.5">
         <div className="flex items-center justify-between px-4 py-2 text-xs font-mono text-slate-400 uppercase tracking-wider">
           <div className="flex items-center gap-4">
             <span className="w-8 text-center">Rank</span>
@@ -176,17 +271,17 @@ export function LeaderboardView() {
             <RotateCw className="w-8 h-8 mx-auto text-primary animate-spin mb-3" />
             <p className="text-sm text-slate-400 font-mono">Loading real-time scores...</p>
           </div>
-        ) : entries.length === 0 ? (
+        ) : filteredEntries.length === 0 ? (
           <div className="glass-card rounded-2xl p-12 text-center">
             <Trophy className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-            <h3 className="text-base font-semibold text-white">No scores submitted yet</h3>
+            <h3 className="text-base font-semibold text-white">No matching teams found</h3>
             <p className="text-xs text-slate-400 mt-1">
-              Switch to Judge mode to submit the first autonomous run!
+              Try adjusting your search criteria.
             </p>
           </div>
         ) : (
           <AnimatePresence>
-            {entries.map((entry, index) => {
+            {filteredEntries.map((entry, index) => {
               const isExpanded = expandedTeamId === entry.team.id;
               const isTopThree = index < 3;
               const rankColor =

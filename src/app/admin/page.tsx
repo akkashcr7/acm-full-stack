@@ -6,19 +6,22 @@ import { CriteriaEditor } from "@/components/admin/criteria-editor";
 import { ConflictCenter } from "@/components/admin/conflict-center";
 import { AuditLogTable } from "@/components/admin/audit-log-table";
 import { TeamQRView } from "@/components/admin/team-qr-view";
+import { JudgeAssignmentMatrix } from "@/components/admin/judge-assignment-matrix";
 import {
   Sliders,
   ShieldAlert,
   History,
   QrCode,
   ShieldCheck,
+  UserCheck,
 } from "lucide-react";
 
 export default function AdminPage() {
-  const [activeTab, setActiveTab] = useState<"criteria" | "conflicts" | "audit" | "teams">("criteria");
+  const [activeTab, setActiveTab] = useState<"criteria" | "conflicts" | "audit" | "teams" | "assignments">("criteria");
 
   const tabs = [
     { id: "criteria", label: "Criteria & Weights", icon: Sliders },
+    { id: "assignments", label: "Judge Allocations", icon: UserCheck },
     { id: "conflicts", label: "Conflict Center", icon: ShieldAlert },
     { id: "audit", label: "Audit Trail & CSV", icon: History },
     { id: "teams", label: "Teams & QR Badges", icon: QrCode },
@@ -77,6 +80,7 @@ export default function AdminPage() {
         transition={{ duration: 0.25 }}
       >
         {activeTab === "criteria" && <CriteriaEditor />}
+        {activeTab === "assignments" && <JudgeAssignmentMatrix />}
         {activeTab === "conflicts" && <ConflictCenter />}
         {activeTab === "audit" && <AuditLogTable />}
         {activeTab === "teams" && <TeamQRView />}

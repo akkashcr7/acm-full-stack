@@ -127,3 +127,11 @@ export interface OfflineQueuedScore {
   synced: boolean;
   syncAttempts: number;
 }
+
+export interface JudgeAssignment {
+  id: string;
+  judgeId: string;
+  judgeName: string;
+  teamIds: string[];
+  eventId: string;
+}

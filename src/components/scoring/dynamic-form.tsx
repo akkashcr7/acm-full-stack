@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Team, ScoringCriterion, CriterionScore } from "@/types";
+import { Team, ScoringCriterion, CriterionScore, JudgeAssignment } from "@/types";
 import { useAce } from "@/context/ace-context";
 import { calculateWeightedScore } from "@/lib/scoring";
 import { queueScoreOffline, isNetworkOnline } from "@/lib/offline/sync";
@@ -16,12 +16,15 @@ import {
   Zap,
   RotateCw,
   Camera,
+  Target,
 } from "lucide-react";
+import { sounds } from "@/lib/sound";
 
 export function DynamicScoringForm({ initialTeamId }: { initialTeamId?: string }) {
   const { currentUser, isOnline } = useAce();
   const [teams, setTeams] = useState<Team[]>([]);
   const [criteria, setCriteria] = useState<ScoringCriterion[]>([]);
+  const [assignedTeamIds, setAssignedTeamIds] = useState<string[]>([]);
   const [selectedTeamId, setSelectedTeamId] = useState<string>(initialTeamId || "");
   const [scores, setScores] = useState<Record<string, number>>({});
   const [penalties, setPenalties] = useState<number>(0);
@@ -32,21 +35,29 @@ export function DynamicScoringForm({ initialTeamId }: { initialTeamId?: string }
     text: string;
   } | null>(null);
   const [showQRModal, setShowQRModal] = useState<boolean>(false);
+  const videoRef = React.useRef<HTMLVideoElement | null>(null);
+  const [cameraActive, setCameraActive] = useState<boolean>(false);
 
   // Load teams & criteria (from network or IndexedDB offline cache!)
   useEffect(() => {
     const loadData = async () => {
       try {
         if (isNetworkOnline()) {
-          const [teamsRes, critRes] = await Promise.all([
+          const [teamsRes, critRes, asgnRes] = await Promise.all([
             fetch("/api/teams"),
             fetch("/api/criteria"),
+            fetch("/api/assignments"),
           ]);
           if (teamsRes.ok && critRes.ok) {
             const { teams } = await teamsRes.json();
             const { criteria } = await critRes.json();
             setTeams(teams);
             setCriteria(criteria);
+            if (asgnRes.ok) {
+              const { assignments } = await asgnRes.json();
+              const myAsgn = assignments?.find((a: JudgeAssignment) => a.judgeId === currentUser.id);
+              if (myAsgn) setAssignedTeamIds(myAsgn.teamIds);
+            }
             if (!selectedTeamId && teams.length > 0) {
               setSelectedTeamId(teams[0].id);
             }
@@ -84,6 +95,67 @@ export function DynamicScoringForm({ initialTeamId }: { initialTeamId?: string }
 
     loadData();
   }, [selectedTeamId]);
+
+  // Camera scanner handling
+  useEffect(() => {
+    let stream: MediaStream | null = null;
+    if (showQRModal) {
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        navigator.mediaDevices
+          .getUserMedia({ video: { facingMode: "environment" } })
+          .then((s) => {
+            stream = s;
+            setCameraActive(true);
+            if (videoRef.current) {
+              videoRef.current.srcObject = s;
+            }
+          })
+          .catch(() => {
+            setCameraActive(false);
+          });
+      }
+    } else {
+      if (stream) {
+        (stream as MediaStream).getTracks().forEach((track) => track.stop());
+      }
+      setCameraActive(false);
+    }
+
+    return () => {
+      if (stream) {
+        (stream as MediaStream).getTracks().forEach((track) => track.stop());
+      }
+    };
+  }, [showQRModal]);
+
+  const applyPreset = (type: "perfect" | "penalty" | "anomaly") => {
+    sounds.playClick();
+    if (type === "perfect") {
+      const pScores: Record<string, number> = {};
+      criteria.forEach((c) => {
+        pScores[c.id] = c.maxScore;
+      });
+      setScores(pScores);
+      setPenalties(0);
+      setNotes("Flawless autonomous run with optimal path navigation.");
+    } else if (type === "penalty") {
+      const pScores: Record<string, number> = {};
+      criteria.forEach((c) => {
+        pScores[c.id] = Math.round(c.maxScore * 0.85);
+      });
+      setScores(pScores);
+      setPenalties(3);
+      setNotes("Minor perimeter boundary violation on obstacle 2.");
+    } else if (type === "anomaly") {
+      const pScores: Record<string, number> = {};
+      criteria.forEach((c) => {
+        pScores[c.id] = Math.max(1, Math.round(c.maxScore * 0.15));
+      });
+      setScores(pScores);
+      setPenalties(8);
+      setNotes("Hardware stall and total sensor failure (Triggers 2σ anomaly flag).");
+    }
+  };
 
   const selectedTeam = teams.find((t) => t.id === selectedTeamId);
 
@@ -126,6 +198,7 @@ export function DynamicScoringForm({ initialTeamId }: { initialTeamId?: string }
           teamName: selectedTeam.name,
         });
 
+        sounds.playSync();
         setStatusMessage({
           type: "offline",
           text: `Offline Mode: Score (${liveTotalScore.toFixed(
@@ -149,6 +222,7 @@ export function DynamicScoringForm({ initialTeamId }: { initialTeamId?: string }
         throw new Error(data.error || "Submission failed");
       }
 
+      sounds.playSuccess();
       if (data.isAnomaly) {
         setStatusMessage({
           type: "anomaly",
@@ -238,28 +312,71 @@ export function DynamicScoringForm({ initialTeamId }: { initialTeamId?: string }
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Team Selection */}
         <div className="glass-card rounded-2xl p-4 sm:p-5 border border-border/80">
-          <label className="block text-xs font-mono uppercase tracking-wider text-slate-400 mb-2">
-            Target Robotics Team
-          </label>
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-xs font-mono uppercase tracking-wider text-slate-400">
+              Target Robotics Team
+            </label>
+            <span className="text-[10px] font-mono text-primary">
+              Select or scan QR to switch
+            </span>
+          </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {teams.map((t) => {
               const isSelected = t.id === selectedTeamId;
+              const isAssigned = assignedTeamIds.includes(t.id);
               return (
                 <button
                   type="button"
                   key={t.id}
-                  onClick={() => setSelectedTeamId(t.id)}
-                  className={`p-3 rounded-xl border text-left transition-all ${
+                  onClick={() => {
+                    sounds.playClick();
+                    setSelectedTeamId(t.id);
+                  }}
+                  className={`p-3 rounded-xl border text-left transition-all relative ${
                     isSelected
                       ? "bg-primary/15 border-primary text-white shadow-md shadow-primary/10"
                       : "bg-surface-100 border-border/60 text-slate-300 hover:border-slate-500"
                   }`}
                 >
+                  {isAssigned && (
+                    <span className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_#34d399]" />
+                  )}
                   <p className="font-bold text-sm truncate">{t.name}</p>
                   <p className="text-[11px] text-slate-400 truncate">{t.robotName}</p>
                 </button>
               );
             })}
+          </div>
+        </div>
+
+        {/* Quick Presets Toolbar */}
+        <div className="flex flex-wrap items-center justify-between gap-2 p-3 bg-surface-100/90 rounded-2xl border border-border/80">
+          <span className="text-xs font-mono text-slate-400 flex items-center gap-1.5">
+            <Target className="w-3.5 h-3.5 text-primary" />
+            Quick Scenarios:
+          </span>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => applyPreset("perfect")}
+              className="px-2.5 py-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/40 text-[11px] font-semibold text-emerald-300 transition-colors"
+            >
+              🎯 Perfect Run
+            </button>
+            <button
+              type="button"
+              onClick={() => applyPreset("penalty")}
+              className="px-2.5 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-[11px] font-semibold text-amber-300 transition-colors"
+            >
+              ⚠️ Minor Penalty
+            </button>
+            <button
+              type="button"
+              onClick={() => applyPreset("anomaly")}
+              className="px-2.5 py-1 rounded-lg bg-purple-500/15 hover:bg-purple-500/25 border border-purple-500/40 text-[11px] font-semibold text-purple-300 transition-colors"
+            >
+              🚨 2σ Outlier
+            </button>
           </div>
         </div>
 
@@ -410,13 +527,24 @@ export function DynamicScoringForm({ initialTeamId }: { initialTeamId?: string }
               </button>
             </div>
 
-            <div className="w-full aspect-square bg-slate-950 rounded-xl border border-border/80 flex flex-col items-center justify-center p-4 text-center relative overflow-hidden">
-              <div className="w-48 h-48 border-2 border-primary/60 border-dashed rounded-xl flex items-center justify-center">
-                <QrCode className="w-16 h-16 text-primary/40 animate-pulse" />
-              </div>
-              <p className="text-[11px] text-slate-400 mt-3 font-mono">
-                Point camera at robot or badge QR code
-              </p>
+            <div className="w-full aspect-square bg-slate-950 rounded-xl border border-primary/40 flex flex-col items-center justify-center text-center relative overflow-hidden">
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                className={`w-full h-full object-cover ${cameraActive ? "block" : "hidden"}`}
+              />
+              {!cameraActive && (
+                <div className="w-48 h-48 border-2 border-primary/60 border-dashed rounded-xl flex flex-col items-center justify-center p-4">
+                  <QrCode className="w-16 h-16 text-primary/40 animate-pulse mb-2" />
+                  <p className="text-[11px] text-slate-400 font-mono">
+                    Point camera at robot or badge QR code
+                  </p>
+                </div>
+              )}
+              {/* Animated laser scanning reticle line */}
+              <div className="absolute inset-x-0 h-0.5 bg-gradient-to-r from-transparent via-cyan-400 to-transparent shadow-[0_0_8px_#00F0FF] animate-pulse-slow top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
 
             <div className="mt-4 space-y-2">

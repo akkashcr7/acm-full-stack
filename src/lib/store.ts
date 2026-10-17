@@ -7,6 +7,7 @@ import {
   ScoreConflict,
   AuditLogEntry,
   TeamLeaderboardEntry,
+  JudgeAssignment,
 } from "@/types";
 import {
   calculateWeightedScore,
@@ -236,9 +237,27 @@ declare global {
     submissions: ScoreSubmission[];
     conflicts: ScoreConflict[];
     auditLogs: AuditLogEntry[];
+    assignments: JudgeAssignment[];
     sseClients: Set<(data: string) => void>;
   };
 }
+
+const INITIAL_ASSIGNMENTS: JudgeAssignment[] = [
+  {
+    id: "asgn_1",
+    judgeId: "usr_judge1",
+    judgeName: "Dr. Sarah Chen (Judge 1)",
+    teamIds: ["team_alpha", "team_beta", "team_delta"],
+    eventId: "evt_ace_2026",
+  },
+  {
+    id: "asgn_2",
+    judgeId: "usr_judge2",
+    judgeName: "Marcus Brody (Judge 2)",
+    teamIds: ["team_gamma", "team_epsilon"],
+    eventId: "evt_ace_2026",
+  },
+];
 
 if (!globalThis.__ACE_STORE__) {
   globalThis.__ACE_STORE__ = {
@@ -249,6 +268,7 @@ if (!globalThis.__ACE_STORE__) {
     submissions: [...INITIAL_SUBMISSIONS],
     conflicts: [],
     auditLogs: [...INITIAL_AUDIT_LOGS],
+    assignments: [...INITIAL_ASSIGNMENTS],
     sseClients: new Set(),
   };
 }
@@ -259,6 +279,11 @@ export const AppStore = {
   getUsers: () => store.users,
   getUserById: (id: string) => store.users.find((u) => u.id === id),
   getEvent: () => store.event,
+  updateEvent: (updates: Partial<CompetitionEvent>) => {
+    store.event = { ...store.event, ...updates };
+    AppStore.notifySSE("EVENT_UPDATED");
+    return store.event;
+  },
   getTeams: () => store.teams,
   getTeamById: (id: string) => store.teams.find((t) => t.id === id),
   getCriteria: () => store.criteria,
@@ -266,6 +291,65 @@ export const AppStore = {
   getSubmissions: () => store.submissions,
   getConflicts: () => store.conflicts,
   getAuditLogs: () => [...store.auditLogs].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()),
+  getAssignments: () => store.assignments,
+  getAssignmentsForJudge: (judgeId: string) => store.assignments.find((a) => a.judgeId === judgeId)?.teamIds || [],
+  setAssignment: (judgeId: string, judgeName: string, teamIds: string[]) => {
+    const existing = store.assignments.find((a) => a.judgeId === judgeId);
+    if (existing) {
+      existing.teamIds = teamIds;
+    } else {
+      store.assignments.push({
+        id: `asgn_${Date.now()}`,
+        judgeId,
+        judgeName,
+        teamIds,
+        eventId: "evt_ace_2026",
+      });
+    }
+    AppStore.notifySSE("ASSIGNMENT_UPDATED");
+  },
+
+  // One-click simulated conflict generator (for demo review / testing on demand!)
+  createSimulatedConflict: (): ScoreConflict => {
+    const conflict: ScoreConflict = {
+      id: `conf_sim_${Date.now()}`,
+      teamId: "team_beta",
+      teamName: "RoboTitans",
+      criterionId: "crit_auto_nav",
+      criterionName: "Autonomous Navigation",
+      existingScore: {
+        judgeId: "usr_judge1",
+        judgeName: "Dr. Sarah Chen (Judge 1)",
+        score: 28.0,
+        timestamp: new Date(Date.now() - 120000).toISOString(),
+        version: 1,
+      },
+      incomingScore: {
+        judgeId: "usr_judge1",
+        judgeName: "Dr. Sarah Chen (Judge 1 - Tablet B)",
+        score: 22.0,
+        timestamp: new Date().toISOString(),
+        version: 2,
+      },
+      status: "pending",
+    };
+
+    store.conflicts.push(conflict);
+    AppStore.addAuditLog({
+      action: "SCORE_SUBMITTED",
+      actorId: "usr_judge1",
+      actorName: "Dr. Sarah Chen",
+      actorRole: "judge",
+      targetTeamId: "team_beta",
+      targetTeamName: "RoboTitans",
+      oldValue: 28.0,
+      newValue: 22.0,
+      details: "CONCURRENCY CONFLICT DETECTED between Offline Tablet A (28.0) and Offline Tablet B (22.0).",
+    });
+
+    AppStore.notifySSE("CONFLICT_DETECTED");
+    return conflict;
+  },
 
   // Add / Update Criteria (Admin Core Feature)
   addCriterion: (criterion: Omit<ScoringCriterion, "id">): ScoringCriterion => {
