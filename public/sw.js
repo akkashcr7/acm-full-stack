@@ -1,5 +1,5 @@
-// Team ACE Offline-First Service Worker (v4 - Network-First for Navigation)
-const CACHE_NAME = "ace-judge-v4";
+// Team ACE Offline-First Service Worker (v5 - Network-First for Navigation)
+const CACHE_NAME = "ace-judge-v5";
 const ASSETS_TO_CACHE = [
   "/",
   "/judge",

@@ -97,58 +97,76 @@ export function JudgeAssignmentMatrix() {
         )}
       </div>
 
-      <div className="glass-card rounded-2xl border border-border/80 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-surface-200/90 font-mono text-slate-400 uppercase tracking-wider border-b border-border/60">
-              <tr>
-                <th className="py-3 px-4">Robot Team</th>
-                <th className="py-3 px-4">Organization</th>
-                {judges.map((j) => (
-                  <th key={j.id} className="py-3 px-4 text-center">
-                    <div className="flex flex-col items-center">
-                      <span className="font-bold text-slate-200">{j.name}</span>
-                      <span className="text-[10px] text-primary lowercase">{j.email}</span>
-                    </div>
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border/40">
-              {teams.map((t) => (
-                <tr key={t.id} className="hover:bg-white/[0.02] transition-colors">
-                  <td className="py-3 px-4">
-                    <p className="font-bold text-white">{t.name}</p>
-                    <p className="text-[11px] font-mono text-primary">{t.robotName}</p>
-                  </td>
-                  <td className="py-3 px-4 text-slate-400">{t.organization}</td>
-
-                  {judges.map((j) => {
-                    const asgn = assignments.find((a) => a.judgeId === j.id);
-                    const isAssigned = asgn?.teamIds.includes(t.id);
-
-                    return (
-                      <td key={j.id} className="py-3 px-4 text-center">
-                        <button
-                          type="button"
-                          onClick={() => toggleAssignment(j, t.id)}
-                          className={`w-7 h-7 mx-auto rounded-lg border flex items-center justify-center transition-all ${
-                            isAssigned
-                              ? "bg-primary border-primary text-slate-950 font-bold shadow-md shadow-primary/20 scale-105"
-                              : "bg-surface-100 border-border/60 text-slate-600 hover:border-slate-400"
-                          }`}
-                        >
-                          {isAssigned ? <Check className="w-4 h-4 stroke-[3]" /> : null}
-                        </button>
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {teams.length === 0 ? (
+        <div className="glass-card rounded-2xl p-10 text-center border border-border/80">
+          <UserCheck className="w-10 h-10 text-slate-500 mx-auto mb-2" />
+          <h3 className="font-bold text-white text-sm">No Teams Registered Yet</h3>
+          <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+            Please register competition teams in the &ldquo;Teams & QR Badges&rdquo; tab to allocate judges.
+          </p>
         </div>
-      </div>
+      ) : judges.length === 0 ? (
+        <div className="glass-card rounded-2xl p-10 text-center border border-border/80">
+          <UserCheck className="w-10 h-10 text-slate-500 mx-auto mb-2" />
+          <h3 className="font-bold text-white text-sm">No Certified Judges Logged In</h3>
+          <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+            Judges will appear here automatically when they sign in with their Google or judge email.
+          </p>
+        </div>
+      ) : (
+        <div className="glass-card rounded-2xl border border-border/80 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-surface-200/90 font-mono text-slate-400 uppercase tracking-wider border-b border-border/60">
+                <tr>
+                  <th className="py-3 px-4">Robot Team</th>
+                  <th className="py-3 px-4">Organization</th>
+                  {judges.map((j) => (
+                    <th key={j.id} className="py-3 px-4 text-center">
+                      <div className="flex flex-col items-center">
+                        <span className="font-bold text-slate-200">{j.name}</span>
+                        <span className="text-[10px] text-primary lowercase">{j.email}</span>
+                      </div>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/40">
+                {teams.map((t) => (
+                  <tr key={t.id} className="hover:bg-white/[0.02] transition-colors">
+                    <td className="py-3 px-4">
+                      <p className="font-bold text-white">{t.name}</p>
+                      <p className="text-[11px] font-mono text-primary">{t.robotName}</p>
+                    </td>
+                    <td className="py-3 px-4 text-slate-400">{t.organization}</td>
+
+                    {judges.map((j) => {
+                      const asgn = assignments.find((a) => a.judgeId === j.id);
+                      const isAssigned = asgn?.teamIds.includes(t.id);
+
+                      return (
+                        <td key={j.id} className="py-3 px-4 text-center">
+                          <button
+                            type="button"
+                            onClick={() => toggleAssignment(j, t.id)}
+                            className={`w-7 h-7 mx-auto rounded-lg border flex items-center justify-center transition-all ${
+                              isAssigned
+                                ? "bg-primary border-primary text-slate-950 font-bold shadow-md shadow-primary/20 scale-105"
+                                : "bg-surface-100 border-border/60 text-slate-600 hover:border-slate-400"
+                            }`}
+                          >
+                            {isAssigned ? <Check className="w-4 h-4 stroke-[3]" /> : null}
+                          </button>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

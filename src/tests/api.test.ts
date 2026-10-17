@@ -65,9 +65,21 @@ describe("Team ACE Competition Judging Platform - 15+ Unit & API Tests", () => {
   // Test 1: Event and Teams retrieval
   it("Test 1: AppStore should provide valid event metadata and teams", () => {
     const event = AppStore.getEvent();
-    const teams = AppStore.getTeams();
     expect(event).toBeDefined();
     expect(event.name).toContain("Team ACE");
+    AppStore.addTeam({
+      name: "CyberViper",
+      robotName: "Viper-X Mk IV",
+      organization: "MIT Robotics Lab",
+      eventId: event.id,
+    });
+    AppStore.addTeam({
+      name: "RoboTitans",
+      robotName: "Atlas Prime",
+      organization: "Stanford Robotics",
+      eventId: event.id,
+    });
+    const teams = AppStore.getTeams();
     expect(teams.length).toBeGreaterThanOrEqual(2);
   });
 
@@ -366,9 +378,18 @@ describe("Team ACE Competition Judging Platform - 15+ Unit & API Tests", () => {
 
   // Test 13: Conflict detection between multiple devices
   it("Test 13: AppStore should detect concurrency conflict when different devices submit divergent scores", () => {
+    let team = AppStore.getTeams().find((t) => t.id === "team_delta");
+    if (!team) {
+      team = AppStore.addTeam({
+        name: "AeroBotics",
+        robotName: "SkyHawker",
+        organization: "Georgia Tech",
+        eventId: "evt_ace_2026",
+      });
+    }
     const res1 = AppStore.submitScore({
       eventId: "evt_ace_2026",
-      teamId: "team_delta",
+      teamId: team.id,
       judgeId: "usr_judge1",
       judgeName: "Dr. Sarah Chen",
       criteriaScores: [{ criterionId: "crit_auto_nav", score: 20 }],
@@ -379,7 +400,7 @@ describe("Team ACE Competition Judging Platform - 15+ Unit & API Tests", () => {
     // Now tablet B submits a divergent score for the same judge & team
     const res2 = AppStore.submitScore({
       eventId: "evt_ace_2026",
-      teamId: "team_delta",
+      teamId: team.id,
       judgeId: "usr_judge1",
       judgeName: "Dr. Sarah Chen",
       criteriaScores: [{ criterionId: "crit_auto_nav", score: 28 }],

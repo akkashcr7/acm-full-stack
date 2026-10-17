@@ -528,22 +528,24 @@ export function DynamicScoringForm({ initialTeamId }: { initialTeamId?: string }
 
             <div className="mt-4 space-y-2">
               <p className="text-[10px] uppercase font-mono text-slate-400 text-center">
-                Or Quick-Select Demo Team:
+                {teams.length > 0 ? "Or Select Registered Team:" : "No Teams Registered Yet"}
               </p>
-              <div className="grid grid-cols-2 gap-1.5">
-                {teams.map((t) => (
-                  <button
-                    key={t.id}
-                    onClick={() => {
-                      setSelectedTeamId(t.id);
-                      setShowQRModal(false);
-                    }}
-                    className="p-2 rounded-lg bg-surface-100 hover:bg-surface-50 border border-border/60 text-xs font-medium text-white truncate"
-                  >
-                    {t.name}
-                  </button>
-                ))}
-              </div>
+              {teams.length > 0 && (
+                <div className="grid grid-cols-2 gap-1.5">
+                  {teams.map((t) => (
+                    <button
+                      key={t.id}
+                      onClick={() => {
+                        setSelectedTeamId(t.id);
+                        setShowQRModal(false);
+                      }}
+                      className="p-2 rounded-lg bg-surface-100 hover:bg-surface-50 border border-border/60 text-xs font-medium text-white truncate"
+                    >
+                      {t.name}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </motion.div>
         </div>

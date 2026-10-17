@@ -26,33 +26,17 @@ interface AceContextType {
   lastSyncMessage: string | null;
 }
 
-const DEMO_USERS: Record<UserRole, User> = {
-  admin: {
-    id: "usr_admin",
-    name: "Alex Vance (Lead Admin)",
-    email: "admin@gmail.com",
-    role: "admin",
-    avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80",
-  },
-  judge: {
-    id: "usr_judge1",
-    name: "Dr. Sarah Chen (Judge 1)",
-    email: "judge1@gmail.com",
-    role: "judge",
-    avatar: "https://images.unsplash.com/photo-1580489944761-15a19d654956?w=100&auto=format&fit=crop&q=80",
-  },
-  public: {
-    id: "usr_public",
-    name: "Public Spectator",
-    email: "public@gmail.com",
-    role: "public",
-  },
+const GUEST_SPECTATOR: User = {
+  id: "usr_guest",
+  name: "Public Spectator",
+  email: "",
+  role: "public",
 };
 
 const AceContext = createContext<AceContextType | undefined>(undefined);
 
 export function AceProvider({ children }: { children: React.ReactNode }) {
-  const [currentUser, setCurrentUser] = useState<User>(DEMO_USERS.public);
+  const [currentUser, setCurrentUser] = useState<User>(GUEST_SPECTATOR);
   const [isOnline, setIsOnline] = useState<boolean>(true);
   const [isSimulated, setIsSimulated] = useState<boolean>(false);
   const [pendingQueueCount, setPendingQueueCount] = useState<number>(0);
@@ -67,11 +51,6 @@ export function AceProvider({ children }: { children: React.ReactNode }) {
       const storedUser = localStorage.getItem("ace_current_user");
       if (storedUser) {
         setCurrentUser(JSON.parse(storedUser));
-      } else {
-        const savedRole = localStorage.getItem("ace_active_role") as UserRole | null;
-        if (savedRole && DEMO_USERS[savedRole]) {
-          setCurrentUser(DEMO_USERS[savedRole]);
-        }
       }
     } catch {
       // Fallback
@@ -165,10 +144,15 @@ export function AceProvider({ children }: { children: React.ReactNode }) {
   };
 
   const switchRole = (role: UserRole) => {
-    const user = DEMO_USERS[role];
-    setCurrentUser(user);
+    const updatedUser: User = {
+      ...currentUser,
+      role,
+      name: currentUser.role === "public" ? `${role.toUpperCase()} Authority` : currentUser.name,
+    };
+    setCurrentUser(updatedUser);
     if (typeof window !== "undefined") {
       localStorage.setItem("ace_active_role", role);
+      localStorage.setItem("ace_current_user", JSON.stringify(updatedUser));
     }
   };
 
@@ -222,7 +206,7 @@ export function AceProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = () => {
-    setCurrentUser(DEMO_USERS.public);
+    setCurrentUser(GUEST_SPECTATOR);
     if (typeof window !== "undefined") {
       localStorage.removeItem("ace_current_user");
       localStorage.setItem("ace_active_role", "public");

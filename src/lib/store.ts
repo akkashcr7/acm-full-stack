@@ -15,49 +15,8 @@ import {
   detectAnomalies,
 } from "./scoring";
 
-// Pre-seeded initial data for Team ACE Robotics Competition
-const INITIAL_USERS: User[] = [
-  {
-    id: "usr_admin",
-    name: "Alex Vance (Lead Admin)",
-    email: "admin@gmail.com",
-    role: "admin",
-    avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80",
-  },
-  {
-    id: "usr_judge1",
-    name: "Dr. Sarah Chen (Judge 1)",
-    email: "judge1@gmail.com",
-    role: "judge",
-    avatar: "https://images.unsplash.com/photo-1580489944761-15a19d654956?w=100&auto=format&fit=crop&q=80",
-  },
-  {
-    id: "usr_judge2",
-    name: "Marcus Brody (Judge 2)",
-    email: "judge2@gmail.com",
-    role: "judge",
-    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80",
-  },
-  {
-    id: "usr_public",
-    name: "Spectator / Public",
-    email: "public@gmail.com",
-    role: "public",
-  },
-  // Legacy aliases
-  {
-    id: "usr_admin_ace",
-    name: "Alex Vance (Admin)",
-    email: "admin@ace.ai",
-    role: "admin",
-  },
-  {
-    id: "usr_judge1_ace",
-    name: "Dr. Sarah Chen",
-    email: "judge1@ace.ai",
-    role: "judge",
-  },
-];
+// Production user storage: users are created dynamically when authenticating
+const INITIAL_USERS: User[] = [];
 
 const INITIAL_EVENT: CompetitionEvent = {
   id: "evt_ace_2026",
@@ -106,48 +65,8 @@ const INITIAL_CRITERIA: ScoringCriterion[] = [
   },
 ];
 
-const INITIAL_TEAMS: Team[] = [
-  {
-    id: "team_alpha",
-    name: "CyberViper",
-    robotName: "Viper-X Mk IV",
-    organization: "MIT Robotics Lab",
-    eventId: "evt_ace_2026",
-    qrCodeUrl: "/api/qr?data=team_alpha",
-  },
-  {
-    id: "team_beta",
-    name: "RoboTitans",
-    robotName: "Atlas Prime",
-    organization: "Stanford Robotics",
-    eventId: "evt_ace_2026",
-    qrCodeUrl: "/api/qr?data=team_beta",
-  },
-  {
-    id: "team_gamma",
-    name: "QuantumGear",
-    robotName: "Q-Rover 900",
-    organization: "Carnegie Mellon",
-    eventId: "evt_ace_2026",
-    qrCodeUrl: "/api/qr?data=team_gamma",
-  },
-  {
-    id: "team_delta",
-    name: "AeroBotics",
-    robotName: "SkyHawker",
-    organization: "Georgia Tech",
-    eventId: "evt_ace_2026",
-    qrCodeUrl: "/api/qr?data=team_delta",
-  },
-  {
-    id: "team_epsilon",
-    name: "Nexus Mech",
-    robotName: "Apex Sentinel",
-    organization: "Team ACE Core",
-    eventId: "evt_ace_2026",
-    qrCodeUrl: "/api/qr?data=team_epsilon",
-  },
-];
+// Production team slate: registered by competition admin or checked in via QR
+const INITIAL_TEAMS: Team[] = [];
 
 // Clean initial state: trial scores are created dynamically by judges in real-time
 const INITIAL_SUBMISSIONS: ScoreSubmission[] = [];
@@ -170,22 +89,7 @@ declare global {
   };
 }
 
-const INITIAL_ASSIGNMENTS: JudgeAssignment[] = [
-  {
-    id: "asgn_1",
-    judgeId: "usr_judge1",
-    judgeName: "Dr. Sarah Chen (Judge 1)",
-    teamIds: ["team_alpha", "team_beta", "team_delta"],
-    eventId: "evt_ace_2026",
-  },
-  {
-    id: "asgn_2",
-    judgeId: "usr_judge2",
-    judgeName: "Marcus Brody (Judge 2)",
-    teamIds: ["team_gamma", "team_epsilon"],
-    eventId: "evt_ace_2026",
-  },
-];
+const INITIAL_ASSIGNMENTS: JudgeAssignment[] = [];
 
 if (!globalThis.__ACE_STORE__) {
   globalThis.__ACE_STORE__ = {
@@ -386,6 +290,40 @@ export const AppStore = {
     store.teams.push(newTeam);
     AppStore.notifySSE("TEAM_ADDED");
     return newTeam;
+  },
+
+  deleteTeam: (teamId: string): boolean => {
+    const idx = store.teams.findIndex((t) => t.id === teamId);
+    if (idx === -1) return false;
+    const removed = store.teams.splice(idx, 1)[0];
+    // Also remove from assignments
+    store.assignments.forEach((a) => {
+      a.teamIds = a.teamIds.filter((id) => id !== teamId);
+    });
+    // Remove submissions for this team
+    store.submissions = store.submissions.filter((s) => s.teamId !== teamId);
+    AppStore.addAuditLog({
+      action: "SCORE_UPDATED",
+      actorId: "usr_admin",
+      actorName: "Admin",
+      actorRole: "admin",
+      targetTeamId: teamId,
+      targetTeamName: removed.name,
+      oldValue: removed.name,
+      newValue: "DELETED",
+      details: `Removed team ${removed.name} (${removed.robotName})`,
+    });
+    AppStore.notifySSE("TEAM_DELETED");
+    return true;
+  },
+
+  clearTeams: (): void => {
+    store.teams = [];
+    store.submissions = [];
+    store.assignments.forEach((a) => {
+      a.teamIds = [];
+    });
+    AppStore.notifySSE("TEAMS_CLEARED");
   },
 
   // Add / Sync Score with Conflict Detection and 2-Sigma Anomaly Detection

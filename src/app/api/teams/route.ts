@@ -29,3 +29,31 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: errorMsg }, { status: 500 });
   }
 }
+
+export async function DELETE(req: Request) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get("id");
+    const all = searchParams.get("all");
+
+    if (all === "true") {
+      AppStore.clearTeams();
+      return NextResponse.json({ success: true, message: "All teams cleared" });
+    }
+
+    if (!id) {
+      return NextResponse.json({ error: "Team ID is required" }, { status: 400 });
+    }
+
+    const removed = AppStore.deleteTeam(id);
+    if (!removed) {
+      return NextResponse.json({ error: "Team not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({ success: true, message: "Team removed" });
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : "Failed to delete team";
+    return NextResponse.json({ error: errorMsg }, { status: 500 });
+  }
+}
+

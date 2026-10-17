@@ -6,11 +6,11 @@ import { DynamicScoringForm } from "@/components/scoring/dynamic-form";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { useAce } from "@/context/ace-context";
-import { RotateCw, ClipboardCheck, UserCheck, ArrowRight } from "lucide-react";
+import { RotateCw, ClipboardCheck, UserCheck } from "lucide-react";
 
 function JudgeContent() {
   const searchParams = useSearchParams();
-  const { currentUser, switchRole } = useAce();
+  const { currentUser } = useAce();
   const teamId = searchParams.get("teamId") || undefined;
 
   if (currentUser.role === "public") {
@@ -33,21 +33,14 @@ function JudgeContent() {
             </p>
           </div>
 
-          <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+          <div className="pt-2 flex items-center justify-center">
             <Link
               href="/login"
-              className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-primary hover:bg-primary-dark text-slate-950 font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-md shadow-primary/20"
+              className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-primary hover:bg-primary-dark text-slate-950 font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-md shadow-primary/20"
             >
               <UserCheck className="w-4 h-4" />
               <span>Sign In as Judge</span>
             </Link>
-            <button
-              onClick={() => switchRole("judge")}
-              className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-surface-100 hover:bg-surface-200 border border-border/80 text-white font-mono text-xs flex items-center justify-center gap-2 transition-colors"
-            >
-              <span>Instant Activate Judge Mode</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
           </div>
         </motion.div>
       </div>
