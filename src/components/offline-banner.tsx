@@ -6,7 +6,7 @@ import { useAce } from "@/context/ace-context";
 import { WifiOff, RotateCw } from "lucide-react";
 
 export function OfflineBanner() {
-  const { isOnline, pendingQueueCount, triggerManualSync, isSyncing, toggleSimulatedOffline } = useAce();
+  const { isOnline, pendingQueueCount, triggerManualSync, isSyncing } = useAce();
 
   if (isOnline && pendingQueueCount === 0) return null;
 
@@ -25,24 +25,17 @@ export function OfflineBanner() {
             </div>
             <div>
               <span className="font-semibold text-amber-300">
-                {!isOnline ? "Offline Mode (Airplane Mode Active)" : "Sync Pending"}
+                {!isOnline ? "Offline — No Network Detected" : "Sync Pending"}
               </span>
               <span className="text-amber-200/80 ml-1.5 hidden sm:inline">
-                IndexedDB queue has {pendingQueueCount} score(s) stored locally.
+                {!isOnline
+                  ? "Scores are safely buffered in IndexedDB and will auto-sync when back online."
+                  : `IndexedDB queue has ${pendingQueueCount} score(s) stored locally.`}
               </span>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
-            {!isOnline && (
-              <button
-                onClick={toggleSimulatedOffline}
-                className="px-2.5 py-1 rounded bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-[11px] font-medium text-amber-300 transition-colors"
-              >
-                Reconnect Network
-              </button>
-            )}
-
             {isOnline && pendingQueueCount > 0 && (
               <button
                 onClick={triggerManualSync}

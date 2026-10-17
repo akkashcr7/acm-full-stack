@@ -3,9 +3,6 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { User, UserRole } from "@/types";
 import {
-  isNetworkOnline,
-  isSimulatedOffline,
-  setSimulatedOffline,
   getPendingQueue,
   syncOfflineQueue,
   cacheMetadataForOffline,
@@ -18,8 +15,6 @@ interface AceContextType {
   login: (email: string, password?: string, role?: UserRole, name?: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   isOnline: boolean;
-  isSimulated: boolean;
-  toggleSimulatedOffline: () => void;
   pendingQueueCount: number;
   triggerManualSync: () => Promise<void>;
   isSyncing: boolean;
@@ -38,7 +33,6 @@ const AceContext = createContext<AceContextType | undefined>(undefined);
 export function AceProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<User>(GUEST_SPECTATOR);
   const [isOnline, setIsOnline] = useState<boolean>(true);
-  const [isSimulated, setIsSimulated] = useState<boolean>(false);
   const [pendingQueueCount, setPendingQueueCount] = useState<number>(0);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [lastSyncMessage, setLastSyncMessage] = useState<string | null>(null);
@@ -55,9 +49,6 @@ export function AceProvider({ children }: { children: React.ReactNode }) {
     } catch {
       // Fallback
     }
-
-    setIsSimulated(isSimulatedOffline());
-    setIsOnline(isNetworkOnline());
 
     const updateQueue = async () => {
       const pending = await getPendingQueue();
@@ -96,16 +87,14 @@ export function AceProvider({ children }: { children: React.ReactNode }) {
     };
     prefetchMetadata();
 
-    // Active network heartbeat to instantly detect airplane mode or network cut
+    // Active network heartbeat — automatically detects real network loss (airplane mode, Wi-Fi drop)
     const checkConnectionHeartbeat = async () => {
-      if (isSimulatedOffline()) {
-        setIsOnline(false);
-        return;
-      }
+      // Fast path: browser already knows it's offline
       if (typeof navigator !== "undefined" && !navigator.onLine) {
         setIsOnline(false);
         return;
       }
+      // Active probe: try a real HEAD request to confirm actual connectivity
       try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 2000);
@@ -118,7 +107,7 @@ export function AceProvider({ children }: { children: React.ReactNode }) {
         if (res.ok || res.status < 500) {
           setIsOnline((prev) => {
             if (!prev) {
-              // Reconnected! Automatically flush offline queue
+              // Just reconnected — auto-flush the offline queue
               handleAutoSync();
             }
             return true;
@@ -127,7 +116,7 @@ export function AceProvider({ children }: { children: React.ReactNode }) {
           setIsOnline(false);
         }
       } catch {
-        // Network unreachable (airplane mode / Wi-Fi disconnected)
+        // Probe failed: network is down (airplane mode, disconnected Wi-Fi, etc.)
         setIsOnline(false);
       }
     };
@@ -135,30 +124,13 @@ export function AceProvider({ children }: { children: React.ReactNode }) {
     checkConnectionHeartbeat();
     const heartbeatInterval = setInterval(checkConnectionHeartbeat, 3500);
 
-    // Listeners for network & offline events
-    const handleOnline = async () => {
-      await checkConnectionHeartbeat();
-    };
-
-    const handleOffline = () => {
-      setIsOnline(false);
-    };
-
-    const handleCustomChange = async () => {
-      const simulated = isSimulatedOffline();
-      setIsSimulated(simulated);
-      if (simulated) {
-        setIsOnline(false);
-      } else {
-        await checkConnectionHeartbeat();
-      }
-      await updateQueue();
-    };
+    // Browser-native network events as instant triggers
+    const handleOnline = () => checkConnectionHeartbeat();
+    const handleOffline = () => setIsOnline(false);
 
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
     window.addEventListener("focus", checkConnectionHeartbeat);
-    window.addEventListener("ace-connection-change", handleCustomChange);
     window.addEventListener("ace-queue-updated", updateQueue);
 
     return () => {
@@ -166,7 +138,6 @@ export function AceProvider({ children }: { children: React.ReactNode }) {
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
       window.removeEventListener("focus", checkConnectionHeartbeat);
-      window.removeEventListener("ace-connection-change", handleCustomChange);
       window.removeEventListener("ace-queue-updated", updateQueue);
     };
   }, []);
@@ -193,17 +164,6 @@ export function AceProvider({ children }: { children: React.ReactNode }) {
     if (typeof window !== "undefined") {
       localStorage.setItem("ace_active_role", role);
       localStorage.setItem("ace_current_user", JSON.stringify(updatedUser));
-    }
-  };
-
-  const toggleSimulatedOffline = () => {
-    const nextSimulated = !isSimulatedOffline();
-    setIsSimulated(nextSimulated);
-    setSimulatedOffline(nextSimulated);
-    const online = isNetworkOnline();
-    setIsOnline(online);
-    if (online) {
-      handleAutoSync();
     }
   };
 
@@ -268,8 +228,6 @@ export function AceProvider({ children }: { children: React.ReactNode }) {
         login,
         logout,
         isOnline,
-        isSimulated,
-        toggleSimulatedOffline,
         pendingQueueCount,
         triggerManualSync,
         isSyncing,
