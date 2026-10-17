@@ -18,6 +18,9 @@ import {
   Camera,
 } from "lucide-react";
 import { sounds } from "@/lib/sound";
+import { HudMatchTimer } from "./hud-match-timer";
+import { PerformanceRadar } from "../analytics/performance-radar";
+import { announcer } from "@/lib/announcer";
 
 export function DynamicScoringForm({ initialTeamId }: { initialTeamId?: string }) {
   const { currentUser, isOnline } = useAce();
@@ -28,6 +31,7 @@ export function DynamicScoringForm({ initialTeamId }: { initialTeamId?: string }
   const [scores, setScores] = useState<Record<string, number>>({});
   const [penalties, setPenalties] = useState<number>(0);
   const [notes, setNotes] = useState<string>("");
+  const [showRadar, setShowRadar] = useState<boolean>(false);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [statusMessage, setStatusMessage] = useState<{
     type: "success" | "offline" | "error" | "anomaly";
@@ -233,6 +237,9 @@ export function DynamicScoringForm({ initialTeamId }: { initialTeamId?: string }
       }
 
       sounds.playSuccess();
+      if (selectedTeam) {
+        announcer.announceScoreSubmitted(selectedTeam.name, liveTotalScore);
+      }
       if (data.isAnomaly) {
         setStatusMessage({
           type: "anomaly",
@@ -359,6 +366,17 @@ export function DynamicScoringForm({ initialTeamId }: { initialTeamId?: string }
           </div>
         </div>
 
+        {/* Integrated Arena HUD Match Timer with Auto-Penalty Timestamping */}
+        {selectedTeam && (
+          <HudMatchTimer
+            teamName={selectedTeam.name}
+            onTagPenalty={(tag) => {
+              setPenalties((prev) => prev + 1);
+              setNotes((prev) => (prev ? `${prev} | ${tag}` : tag));
+            }}
+          />
+        )}
+
         {/* Dynamic Criteria Sliders */}
         <div className="glass-card rounded-2xl p-5 border border-border/80 space-y-5">
           <div className="flex items-center justify-between border-b border-border/40 pb-3">
@@ -453,6 +471,34 @@ export function DynamicScoringForm({ initialTeamId }: { initialTeamId?: string }
             />
           </div>
         </div>
+
+        {/* Real-Time Capability Radar Matrix */}
+        {selectedTeam && criteria.length >= 3 && (
+          <div className="glass-card rounded-2xl p-4 border border-border/80">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-mono uppercase tracking-wider text-slate-400">
+                Multi-Dimensional Performance Radar
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowRadar(!showRadar)}
+                className="text-[11px] font-mono text-primary hover:underline font-bold"
+              >
+                {showRadar ? "Hide Radar" : "View Radar Shape"}
+              </button>
+            </div>
+            {showRadar && (
+              <div className="pt-3 flex justify-center">
+                <PerformanceRadar
+                  criteria={criteria}
+                  scores={scores}
+                  teamName={selectedTeam.name}
+                  size={260}
+                />
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Live Calculation Sticky Bar */}
         <div className="glass-panel rounded-2xl p-4 sm:p-5 border border-primary/30 flex items-center justify-between shadow-xl shadow-primary/10">

@@ -19,6 +19,8 @@ import {
   Clock,
 } from "lucide-react";
 import { sounds } from "@/lib/sound";
+import { PerformanceRadar } from "../analytics/performance-radar";
+import { announcer } from "@/lib/announcer";
 
 export function LeaderboardView() {
   const [entries, setEntries] = useState<TeamLeaderboardEntry[]>([]);
@@ -62,7 +64,19 @@ export function LeaderboardView() {
         try {
           const data = JSON.parse(event.data);
           if (data.leaderboard) {
-            setEntries(data.leaderboard);
+            setEntries((prev) => {
+              if (
+                data.leaderboard.length > 0 &&
+                prev.length > 0 &&
+                prev[0].team.id !== data.leaderboard[0].team.id
+              ) {
+                announcer.announceLeadChange(
+                  data.leaderboard[0].team.name,
+                  data.leaderboard[0].totalScore
+                );
+              }
+              return data.leaderboard;
+            });
             setLastUpdated(new Date());
             sounds.playSync();
             // Flash live pulse
@@ -354,41 +368,59 @@ export function LeaderboardView() {
                           )}
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                          {criteria.map((c) => {
-                            const score = entry.scoresByCriterion[c.id] ?? 0;
-                            const percentage = Math.min(100, (score / c.maxScore) * 100);
-                            return (
-                              <div
-                                key={c.id}
-                                className="bg-surface-100/80 rounded-xl p-3 border border-border/40"
-                              >
-                                <div className="flex items-center justify-between text-xs mb-1">
-                                  <span className="font-medium text-slate-200 truncate pr-2">
-                                    {c.name}
-                                  </span>
-                                  <span className="text-[10px] font-mono text-primary font-bold">
-                                    wt {c.weight}
-                                  </span>
+                        <div className="flex flex-col lg:flex-row items-center gap-6">
+                          {/* Criteria Bars Grid */}
+                          <div className="flex-1 w-full grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {criteria.map((c) => {
+                              const score = entry.scoresByCriterion[c.id] ?? 0;
+                              const percentage = Math.min(100, (score / c.maxScore) * 100);
+                              return (
+                                <div
+                                  key={c.id}
+                                  className="bg-surface-100/80 rounded-xl p-3 border border-border/40"
+                                >
+                                  <div className="flex items-center justify-between text-xs mb-1">
+                                    <span className="font-medium text-slate-200 truncate pr-2">
+                                      {c.name}
+                                    </span>
+                                    <span className="text-[10px] font-mono text-primary font-bold">
+                                      wt {c.weight}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-baseline justify-between mb-1.5">
+                                    <span className="text-lg font-mono font-bold text-white">
+                                      {score.toFixed(1)}
+                                    </span>
+                                    <span className="text-xs font-mono text-slate-500">
+                                      / {c.maxScore}
+                                    </span>
+                                  </div>
+                                  {/* Mini Progress bar */}
+                                  <div className="w-full h-1.5 bg-surface-50 rounded-full overflow-hidden">
+                                    <div
+                                      className="h-full bg-gradient-to-r from-primary to-accent rounded-full transition-all duration-500"
+                                      style={{ width: `${percentage}%` }}
+                                    />
+                                  </div>
                                 </div>
-                                <div className="flex items-baseline justify-between mb-1.5">
-                                  <span className="text-lg font-mono font-bold text-white">
-                                    {score.toFixed(1)}
-                                  </span>
-                                  <span className="text-xs font-mono text-slate-500">
-                                    / {c.maxScore}
-                                  </span>
-                                </div>
-                                {/* Mini Progress bar */}
-                                <div className="w-full h-1.5 bg-surface-50 rounded-full overflow-hidden">
-                                  <div
-                                    className="h-full bg-gradient-to-r from-primary to-accent rounded-full transition-all duration-500"
-                                    style={{ width: `${percentage}%` }}
-                                  />
-                                </div>
-                              </div>
-                            );
-                          })}
+                              );
+                            })}
+                          </div>
+
+                          {/* Holographic Performance Radar Spider Chart */}
+                          {criteria.length >= 3 && (
+                            <div className="shrink-0 flex flex-col items-center p-2 rounded-2xl bg-surface-100/50 border border-border/30">
+                              <span className="text-[10px] font-mono uppercase text-slate-400 font-semibold mb-1">
+                                Capability Profile Radar
+                              </span>
+                              <PerformanceRadar
+                                criteria={criteria}
+                                scores={entry.scoresByCriterion}
+                                teamName={entry.team.name}
+                                size={220}
+                              />
+                            </div>
+                          )}
                         </div>
                       </motion.div>
                     )}

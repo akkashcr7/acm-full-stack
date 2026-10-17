@@ -13,10 +13,30 @@ import {
   QrCode,
   Sparkles,
   UserCheck,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
+import { announcer } from "@/lib/announcer";
+import { sounds } from "@/lib/sound";
 
 export function Navbar() {
   const pathname = usePathname();
+  const [voiceActive, setVoiceActive] = React.useState<boolean>(false);
+
+  React.useEffect(() => {
+    setVoiceActive(announcer.isEnabled());
+  }, []);
+
+  const toggleVoice = () => {
+    sounds.playClick();
+    const next = !voiceActive;
+    setVoiceActive(next);
+    announcer.setEnabled(next);
+    if (next) {
+      announcer.speak("Arena AI Voice Announcer online.");
+    }
+  };
+
   const {
     currentUser,
     isOnline,
@@ -120,6 +140,23 @@ export function Navbar() {
               {isOnline ? "ONLINE" : "OFFLINE"}
             </span>
           </div>
+
+          {/* Arena AI Voice Announcer Button */}
+          <button
+            type="button"
+            onClick={toggleVoice}
+            title={voiceActive ? "Arena AI Voice Announcer: Active" : "Arena AI Voice Announcer: Muted"}
+            className={`p-1.5 px-2 rounded-xl border text-xs font-mono flex items-center gap-1.5 transition-all ${
+              voiceActive
+                ? "bg-primary/20 border-primary text-primary shadow-[0_0_10px_rgba(0,240,255,0.25)]"
+                : "bg-surface-100 border-border/60 text-slate-400 hover:text-white"
+            }`}
+          >
+            {voiceActive ? <Volume2 className="w-3.5 h-3.5 text-primary" /> : <VolumeX className="w-3.5 h-3.5" />}
+            <span className="hidden sm:inline text-[10px] font-bold">
+              {voiceActive ? "Voice ON" : "Voice"}
+            </span>
+          </button>
 
           {/* User Account / Sign In / Role */}
           {currentUser.role === "public" ? (
